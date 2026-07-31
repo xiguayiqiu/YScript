@@ -1,0 +1,55 @@
+package generics_t
+
+# ========================================
+# 泛型列表（整数）
+# Generic list (integer)
+# ========================================
+
+func TestGenericsListInt() {
+    let nums: list<int> = [1, 2, 3]
+    if len(nums) == 3 and nums[0] == 1 { println("list int: ok") }
+}
+
+# ========================================
+# 泛型列表（字符串）
+# Generic list (string)
+# ========================================
+
+func TestGenericsListString() {
+    let strs: list<string> = ["a", "b", "c"]
+    if len(strs) == 3 and strs[1] == "b" { println("list string: ok") }
+}
+
+# ========================================
+# 泛型列表（字典）
+# Generic list (dict)
+# ========================================
+
+func TestGenericsListDict() {
+    let items: list<dict> = [{"a": 1}, {"b": 2}]
+    if len(items) == 2 { println("list dict: ok") }
+}
+
+# ========================================
+# 变量类型推断
+# Variable type inference
+# ========================================
+
+func TestGenericsVarType() {
+    let x = 42
+    let t = type(x)
+    if t == "int" { println("var type: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestGenericsAll() {
+    TestGenericsListInt()
+    TestGenericsListString()
+    TestGenericsListDict()
+    TestGenericsVarType()
+    println("==== generics all ok ====")
+}

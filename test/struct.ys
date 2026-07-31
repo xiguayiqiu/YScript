@@ -1,0 +1,76 @@
+package struct_t
+
+# ========================================
+# 结构体定义
+# Struct definition
+# ========================================
+
+struct Point { x: int, y: int }
+
+# ========================================
+# 基本创建和读取
+# Basic creation and field reading
+# ========================================
+
+func TestStructBasic() {
+    let p = Point{x: 10, y: 20}
+    if p.x == 10 and p.y == 20 { println("struct basic: ok") }
+}
+
+# ========================================
+# 字段修改
+# Field modification
+# ========================================
+
+func TestStructFieldAccess() {
+    let p = Point{x: 1, y: 2}
+    p.x = 99
+    if p.x == 99 { println("struct field access: ok") }
+}
+
+# ========================================
+# 零值默认
+# Zero value defaults
+# ========================================
+
+func TestStructDefault() {
+    let p = Point{x: 0, y: 0}
+    if p.x == 0 and p.y == 0 { println("struct default: ok") }
+}
+
+# ========================================
+# 值拷贝语义
+# Value copy semantics
+# ========================================
+
+func TestStructCopy() {
+    let a = Point{x: 5, y: 10}
+    let b = a
+    b.x = 99
+    if a.x == 5 and b.x == 99 { println("struct copy: ok") }
+}
+
+# ========================================
+# 相等比较
+# Equality comparison
+# ========================================
+
+func TestStructEquality() {
+    let a = Point{x: 1, y: 2}
+    let b = Point{x: 1, y: 2}
+    if a == b { println("struct equality: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestStructAll() {
+    TestStructBasic()
+    TestStructFieldAccess()
+    TestStructDefault()
+    TestStructCopy()
+    TestStructEquality()
+    println("==== struct all ok ====")
+}

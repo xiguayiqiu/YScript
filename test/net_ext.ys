@@ -1,0 +1,54 @@
+package net_ext_t
+
+# ========================================
+# CIDR 子网解析
+# CIDR subnet parsing
+# ========================================
+
+func TestCIDR() {
+    let c = net.CIDR("192.168.1.0/24")
+    if c.network == "192.168.1.0" and c.prefix_len == 24 { println("cidr: ok") }
+}
+
+# ========================================
+# IP 地址验证
+# IP address validation
+# ========================================
+
+func TestIsIP() {
+    if net.IsIP("192.168.1.1") and not net.IsIP("not-an-ip") { println("is_ip: ok") }
+}
+
+# ========================================
+# IP 版本检测
+# IP version detection
+# ========================================
+
+func TestIPVersion() {
+    let v4 = net.IPVersion("192.168.1.1")
+    let v6 = net.IPVersion("::1")
+    if v4 == 4 and v6 == 6 { println("ip version: ok") }
+}
+
+# ========================================
+# 网络接口列表
+# Network interface list
+# ========================================
+
+func TestInterfaces() {
+    let ifaces = net.Interfaces()
+    if len(ifaces) > 0 { println("interfaces: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestNetExtAll() {
+    TestCIDR()
+    TestIsIP()
+    TestIPVersion()
+    TestInterfaces()
+    println("==== net_ext all ok ====")
+}

@@ -1,0 +1,61 @@
+package interface_t
+
+# ========================================
+# 接口定义
+# Interface definitions
+# ========================================
+
+interface Reader { read(buf) int }
+interface Writer { write(data) int }
+interface Empty {}
+
+# ========================================
+# 接口类型验证
+# Interface type verification
+# ========================================
+
+func TestInterfaceBasic() {
+    if type(Reader) == "interface" { println("interface basic: ok") }
+}
+
+# ========================================
+# 接口类型查询
+# Interface type query
+# ========================================
+
+func TestInterfaceType() {
+    let t = type(Reader)
+    if t == "interface" { println("interface type: ok") }
+}
+
+# ========================================
+# 接口相等比较
+# Interface equality
+# ========================================
+
+func TestInterfaceEquality() {
+    if Reader == Reader { println("interface equality: ok") }
+}
+
+# ========================================
+# 接口存入列表
+# Interface in list
+# ========================================
+
+func TestInterfaceInList() {
+    let ifaces = [Reader, Writer, Empty]
+    if len(ifaces) == 3 { println("interface in list: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestInterfaceAll() {
+    TestInterfaceBasic()
+    TestInterfaceType()
+    TestInterfaceEquality()
+    TestInterfaceInList()
+    println("==== interface all ok ====")
+}

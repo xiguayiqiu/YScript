@@ -1,0 +1,62 @@
+package shell_ext_t
+
+# ========================================
+# 执行外部命令
+# Execute external command
+# ========================================
+
+func TestExec() {
+    let r = os.exec("echo", "hello")
+    if r.stdout == "hello" { println("exec: ok") }
+}
+
+# ========================================
+# 通过 Shell 执行
+# Execute via shell
+# ========================================
+
+func TestExecShell() {
+    let r = os.exec_shell("echo hello")
+    if r.stdout == "hello" { println("exec_shell: ok") }
+}
+
+# ========================================
+# 获取进程 ID
+# Get process ID
+# ========================================
+
+func TestGetpid() {
+    let pid = os.getpid()
+    if pid > 0 { println("getpid: ok") }
+}
+
+# ========================================
+# 获取主机名
+# Get hostname
+# ========================================
+
+func TestHostname() {
+    let h = os.hostname()
+    if h != "" { println("hostname: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestShellExtAll() {
+    TestExec()
+    TestExecShell()
+    TestGetpid()
+    TestHostname()
+    println("==== shell_ext all ok ====")
+}
+
+#**
+* 可以直接将shell命令嵌入变量
+* You can embed shell commands directly within variables.
+#**
+func Shells(){
+    let shells = `ip -c addr`
+}

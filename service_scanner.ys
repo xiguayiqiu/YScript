@@ -1,0 +1,318 @@
+package main
+
+# ========================================
+# 服务端口映射表
+# Service Port Mapping Table
+# ========================================
+
+let SERVICES = {}
+
+init() {
+    SERVICES.set(21, "FTP")
+    SERVICES.set(22, "SSH")
+    SERVICES.set(23, "Telnet")
+    SERVICES.set(25, "SMTP")
+    SERVICES.set(53, "DNS")
+    SERVICES.set(80, "HTTP")
+    SERVICES.set(110, "POP3")
+    SERVICES.set(111, "RPC")
+    SERVICES.set(135, "MSRPC")
+    SERVICES.set(139, "NetBIOS")
+    SERVICES.set(143, "IMAP")
+    SERVICES.set(161, "SNMP")
+    SERVICES.set(389, "LDAP")
+    SERVICES.set(443, "HTTPS")
+    SERVICES.set(445, "SMB")
+    SERVICES.set(465, "SMTPS")
+    SERVICES.set(514, "Syslog")
+    SERVICES.set(587, "SMTP-Sub")
+    SERVICES.set(631, "IPP")
+    SERVICES.set(636, "LDAPS")
+    SERVICES.set(873, "Rsync")
+    SERVICES.set(990, "FTPS")
+    SERVICES.set(992, "Telnets")
+    SERVICES.set(993, "IMAPS")
+    SERVICES.set(995, "POP3S")
+    SERVICES.set(1025, "NFS")
+    SERVICES.set(1080, "SOCKS5")
+    SERVICES.set(1099, "RMI")
+    SERVICES.set(1194, "OpenVPN")
+    SERVICES.set(1352, "LotusNotes")
+    SERVICES.set(1433, "MSSQL")
+    SERVICES.set(1521, "OracleDB")
+    SERVICES.set(2049, "NFS")
+    SERVICES.set(2082, "cPanel")
+    SERVICES.set(2083, "cPanelSSL")
+    SERVICES.set(2181, "ZooKeeper")
+    SERVICES.set(2222, "SSH-Alt")
+    SERVICES.set(2375, "Docker")
+    SERVICES.set(2376, "DockerSSL")
+    SERVICES.set(2483, "OracleDB")
+    SERVICES.set(2484, "OracleDB-SSL")
+    SERVICES.set(3128, "Squid")
+    SERVICES.set(3306, "MySQL")
+    SERVICES.set(3389, "RDP")
+    SERVICES.set(3690, "SVN")
+    SERVICES.set(4443, "HTTPS-Alt")
+    SERVICES.set(4848, "GlassFish")
+    SERVICES.set(5000, "UPnP/Flask")
+    SERVICES.set(5432, "PostgreSQL")
+    SERVICES.set(5555, "ADB")
+    SERVICES.set(5601, "Kibana")
+    SERVICES.set(5672, "RabbitMQ")
+    SERVICES.set(5900, "VNC")
+    SERVICES.set(5901, "VNC-1")
+    SERVICES.set(5984, "CouchDB")
+    SERVICES.set(6000, "X11")
+    SERVICES.set(6379, "Redis")
+    SERVICES.set(6380, "RedisSSL")
+    SERVICES.set(6443, "K8s-API")
+    SERVICES.set(7001, "WebLogic")
+    SERVICES.set(7077, "Spark")
+    SERVICES.set(8080, "HTTP-Proxy")
+    SERVICES.set(8081, "HTTP-Alt")
+    SERVICES.set(8086, "InfluxDB")
+    SERVICES.set(8090, "HTTP-Alt")
+    SERVICES.set(8443, "HTTPS-Alt")
+    SERVICES.set(8545, "Ethereum")
+    SERVICES.set(8686, "HTTP-Alt")
+    SERVICES.set(9000, "HTTP-Alt")
+    SERVICES.set(9042, "Cassandra")
+    SERVICES.set(9092, "Kafka")
+    SERVICES.set(9100, "JetDirect")
+    SERVICES.set(9200, "Elasticsearch")
+    SERVICES.set(9300, "Elasticsearch")
+    SERVICES.set(9418, "Git")
+    SERVICES.set(9999, "HTTP-Alt")
+    SERVICES.set(10000, "Webmin")
+    SERVICES.set(11211, "Memcached")
+    SERVICES.set(15672, "RabbitMQ-UI")
+    SERVICES.set(16010, "HBase")
+    SERVICES.set(27017, "MongoDB")
+    SERVICES.set(27018, "MongoDB")
+    SERVICES.set(27019, "MongoDB")
+    SERVICES.set(50000, "SAP")
+    SERVICES.set(50070, "HDFS")
+    SERVICES.set(61616, "ActiveMQ")
+}
+
+let COMMON_PORTS = [21,22,23,25,53,80,110,111,135,139,143,161,389,443,445,465,514,587,631,636,873,990,992,993,995,1025,1080,1099,1194,1352,1433,1521,2049,2082,2083,2181,2222,2375,2376,2483,2484,3128,3306,3389,3690,4443,4848,5000,5432,5555,5601,5672,5900,5901,5984,6000,6379,6380,6443,7001,7077,8080,8081,8086,8090,8443,8545,8686,9000,9042,9092,9100,9200,9300,9418,9999,10000,11211,15672,16010,27017,27018,27019,50000,50070,61616]
+
+# 全局配置（warp 线程通过全局变量读取）
+# ========================================
+# 全局扫描配置
+# Global Scan Configuration
+# ========================================
+
+let SCAN_IP = ""
+let SCAN_TO = 2
+let BATCH_START = {}
+let BATCH_END = {}
+let BATCH_COUNT = 0
+let BATCH_MAX = 0
+
+# ========================================
+# 扫描单个端口
+# Scan a single port
+# ========================================
+
+func scan_single(p, ip, to) {
+    let conn = net.DialTimeout(ip+":"+string(p), to)
+    if conn != nil {
+        let svc = SERVICES.get(p, "未知")
+        printf("[+] %-5d %s\n", p, svc)
+
+        # ========================================
+        # HTTP Banner 获取（向 Web 端口发送 GET 请求）
+        # HTTP Banner Grabbing (send GET to web ports)
+        # ========================================
+
+        if p == 80 or p == 8080 or p == 8081 or p == 8090 or p == 9000 or p == 3000 or p == 5000 or p == 8000 or p == 8888 or p == 9090 or p == 9999 {
+            let rc2 = net.DialTimeout(ip+":"+string(p), to)
+            if rc2 != nil {
+                let cid2 = rc2.id
+                net.ConnWrite(cid2, bytes("GET / HTTP/1.0\r\nHost: "+ip+"\r\n\r\n"))
+                let resp2 = net.ConnRead(cid2, 512)
+                net.ConnClose(cid2)
+                if resp2 != nil {
+                    let lines2 = strings.Split(string(resp2), "\n")
+                    if len(lines2) > 0 {
+                        printf("      %s\n", lines2[0])
+                    }
+                }
+            }
+        } else {
+            # ========================================
+            # 通用 Banner 获取（读取服务返回的原始数据）
+            # Generic Banner Grabbing (read raw service response)
+            # ========================================
+
+            let rc2 = net.DialTimeout(ip+":"+string(p), to)
+            if rc2 != nil {
+                let cid2 = rc2.id
+                let resp2 = net.ConnRead(cid2, 256)
+                net.ConnClose(cid2)
+                if resp2 != nil and len(resp2) > 0 {
+                    printf("      %s\n", strings.TrimSpace(string(resp2)))
+                }
+            }
+        }
+    }
+}
+
+func main(args) {
+    println("======================================")
+    println("  YScript 并发端口扫描 v3.0")
+    println("  (warp 多线程加速)")
+    println("======================================")
+    println()
+
+    let target = stdio.prompt("请输入 IP 地址或域名", "127.0.0.1")
+    let parts = strings.Split(target, "://")
+    let domain_part = target
+    if len(parts) > 1 {
+        domain_part = parts[1]
+    }
+    let path_parts = strings.Split(domain_part, "/")
+    let final_host = path_parts[0]
+    let port_parts = strings.Split(final_host, ":")
+    let clean_host = port_parts[0]
+    let ip_str = clean_host
+
+    if clean_host.matches("^\\d+\\.\\d+\\.\\d+\\.\\d+$") {
+        printf("[*] 目标: %s\n", ip_str)
+    } else {
+        # 域名解析
+        printf("[*] 正在解析域名: %s\n", clean_host)
+        let ips = net.LookupHost(clean_host)
+        if ips == nil or len(ips) == 0 {
+            println("[!] 域名解析失败")
+            return 1
+        }
+        ip_str = ips[0]
+        printf("[*] %s -> %s\n", target, ip_str)
+    }
+    println()
+
+    # ========================================
+    # 选择扫描模式
+    # Select scan mode
+    # ========================================
+
+    let num_input = stdio.prompt("扫描模式 (1:常用端口 2:1-1024 3:全端口)", "1")
+    let cont = 0
+    let scan_max = 0
+    let total_ports = 0
+    if num_input == "2" {
+        # 1-1024 端口范围
+        cont = 1
+        scan_max = 1024
+        total_ports = 1024
+    } else if num_input == "3" {
+        # 全端口扫描 1-65535
+        cont = 1
+        scan_max = 65535
+        total_ports = 65535
+    } else {
+        total_ports = len(COMMON_PORTS)
+    }
+
+    let to_str = stdio.prompt("超时(秒)", "2")
+    let timeout = int(to_str)
+    if timeout <= 0 { timeout = 2 }
+    println()
+
+    # 设置全局变量（warp 线程读取）
+    SCAN_IP = ip_str
+    SCAN_TO = timeout
+
+    let start = time.now()
+    printf("[*] 扫描 %d 个端口, warp 并发加速\n", total_ports)
+    println()
+
+    # ========================================
+    # 分配并发批次
+    # Distribute concurrent batches
+    # ========================================
+
+    let CONC = 20
+    BATCH_COUNT = CONC
+
+    if cont == 1 {
+        BATCH_MAX = scan_max
+        let batch = int(scan_max / CONC) + 1
+        let ti = 0
+        while ti < CONC {
+            let bs = ti * batch + 1
+            let be = bs + batch - 1
+            if be > scan_max { be = scan_max }
+            BATCH_START.set(ti, bs)
+            BATCH_END.set(ti, be)
+            ti = ti + 1
+        }
+    } else {
+        BATCH_MAX = total_ports
+        let batch = int(total_ports / CONC) + 1
+        let ti = 0
+        while ti < CONC {
+            let bs = ti * batch
+            let be = bs + batch - 1
+            if be >= total_ports { be = total_ports - 1 }
+            BATCH_START.set(ti, bs)
+            BATCH_END.set(ti, be)
+            ti = ti + 1
+        }
+    }
+
+    # ========================================
+    # 启动 warp 并发扫描线程
+    # Launch concurrent warp threads
+    # ========================================
+
+    let CONCURRENT = 20
+    var threads = []
+    let wi = 0
+    while wi < CONCURRENT {
+        let w = warp {
+            let my_id = thread.self()
+            let idx = my_id - 1
+            if idx >= 0 and idx < BATCH_COUNT {
+                let bs = BATCH_START.get(idx, 0)
+                let be = BATCH_END.get(idx, 0)
+                if cont == 1 {
+                    let p = bs
+                    while p <= be {
+                        scan_single(p, SCAN_IP, SCAN_TO)
+                        p = p + 1
+                    }
+                } else {
+                    let i = bs
+                    while i <= be and i < BATCH_MAX {
+                        scan_single(COMMON_PORTS[i], SCAN_IP, SCAN_TO)
+                        i = i + 1
+                    }
+                }
+            }
+        }
+        threads.append(w)
+        wi = wi + 1
+    }
+
+    let n = len(threads)
+    printf("[*] 启动 %d 个并发 warp 线程\n", n)
+    let ai = 0
+    while ai < n {
+        threads[ai].await()
+        ai = ai + 1
+    }
+
+    # ========================================
+    # 完成统计
+    # Completion statistics
+    # ========================================
+
+    let elapsed_ns = time.sub(time.now(), start)
+    let elapsed_s = int(elapsed_ns / 1000000000)
+    println()
+    printf("[*] 扫描完成, 耗时 %d 秒\n", elapsed_s)
+}

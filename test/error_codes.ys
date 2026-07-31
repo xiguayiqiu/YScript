@@ -1,0 +1,46 @@
+package errcode_t
+
+# ========================================
+# 超时错误码
+# Timeout error code
+# ========================================
+
+func TestErrorCodes() {
+    let err = errors.new_with_code(ErrTimeout, "timeout")
+    let found = errors.is(err, "timeout")
+    if found { println("error codes: ok") }
+}
+
+# ========================================
+# 网络错误码
+# Network error codes
+# ========================================
+
+func TestNetErrorCodes() {
+    let err = errors.new_with_code(ErrNetRefused, "connection refused")
+    let found = errors.is(err, "refused")
+    if found { println("net error codes: ok") }
+}
+
+# ========================================
+# IO 错误码
+# IO error codes
+# ========================================
+
+func TestIOErrorCodes() {
+    let err = errors.new_with_code(ErrIOEOF, "eof")
+    let found = errors.is(err, "eof")
+    if found { println("io error codes: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestErrorCodesAll() {
+    TestErrorCodes()
+    TestNetErrorCodes()
+    TestIOErrorCodes()
+    println("==== error codes all ok ====")
+}

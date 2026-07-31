@@ -1,0 +1,55 @@
+package time_lib_t
+
+# ========================================
+# 当前时间戳
+# Current timestamp
+# ========================================
+
+func TestNow() {
+    let t = time.now()
+    if t > 0 { println("now: ok") }
+}
+
+# ========================================
+# 时间格式化
+# Time formatting
+# ========================================
+
+func TestFormat() {
+    let t = time.now()
+    let s = time.format(t, "2006-01-02")
+    if len(s) == 10 { println("format: ok") }
+}
+
+# ========================================
+# 时间解析
+# Time parsing
+# ========================================
+
+func TestParse() {
+    let t = time.parse("2006-01-02", "2024-01-15")
+    if t > 0 { println("parse: ok") }
+}
+
+# ========================================
+# 持续时间
+# Duration parsing
+# ========================================
+
+func TestDuration() {
+    let d = time.duration("1s")
+    if d == 1000000000 { println("duration: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestTimeAll() {
+    TestNow()
+    TestFormat()
+    TestParse()
+    TestDuration()
+    println("==== time all ok ====")
+}

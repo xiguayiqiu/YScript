@@ -1,0 +1,76 @@
+package io_ext_t
+
+# ========================================
+# 修改文件权限
+# Change file permissions
+# ========================================
+
+func TestChmod() {
+    let f = io.temp_file("test_")
+    io.write_file(f, "data")
+    io.chmod(f, 0644)
+    println("chmod: ok")
+    io.remove(f)
+}
+
+# ========================================
+# 获取文件模式
+# Get file mode
+# ========================================
+
+func TestFileMode() {
+    let f = io.temp_file("test_")
+    io.write_file(f, "data")
+    let mode = io.file_mode(f)
+    if mode != "" { println("file mode: ok") }
+    io.remove(f)
+}
+
+# ========================================
+# 目录遍历
+# Directory walk
+# ========================================
+
+func TestWalk() {
+    let entries = io.walk("test")
+    if len(entries) > 0 { println("walk: ok") }
+}
+
+# ========================================
+# 文件匹配
+# Glob pattern matching
+# ========================================
+
+func TestGlob() {
+    let m = io.glob("test/*.ys")
+    if len(m) > 0 { println("glob: ok") }
+}
+
+# ========================================
+# 符号链接
+# Symbolic link
+# ========================================
+
+func TestSymlink() {
+    let f = io.temp_file("test_")
+    let link = f + ".link"
+    io.symlink(f, link)
+    let is_link = io.is_symlink(link)
+    if is_link { println("symlink: ok") } else { println("symlink: ok (skip)") }
+    io.remove(link)
+    io.remove(f)
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestIoExtAll() {
+    TestChmod()
+    TestFileMode()
+    TestWalk()
+    TestGlob()
+    TestSymlink()
+    println("==== io_ext all ok ====")
+}

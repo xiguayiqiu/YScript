@@ -1,0 +1,72 @@
+package enum_t
+
+# ========================================
+# 枚举定义
+# Enum definitions
+# ========================================
+
+enum Color { RED, GREEN, BLUE }
+enum PortCategory { HTTP = 80, SSH = 22 }
+
+# ========================================
+# 枚举值匹配
+# Enum value matching
+# ========================================
+
+func handle_color(c) {
+    if c == Color.RED { return "red" }
+    if c == Color.GREEN { return "green" }
+    return "blue"
+}
+
+# ========================================
+# 枚举值身份
+# Enum value identity
+# ========================================
+
+func TestEnumValues() {
+    if Color.RED == Color.RED and Color.GREEN != Color.BLUE { println("enum values: ok") }
+}
+
+# ========================================
+# 枚举转字符串
+# Enum to string conversion
+# ========================================
+
+func TestEnumString() {
+    let s = string(Color.RED)
+    if s == "RED" { println("enum string: ok") }
+}
+
+# ========================================
+# 自定义整数值
+# Custom integer values
+# ========================================
+
+func TestEnumCustomValues() {
+    if int(PortCategory.HTTP) == 80 and int(PortCategory.SSH) == 22 { println("enum custom: ok") }
+}
+
+# ========================================
+# 枚举相等比较
+# Enum equality
+# ========================================
+
+func TestEnumEquality() {
+    if Color.RED == Color.RED and Color.RED != Color.BLUE { println("enum equality: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestEnumAll() {
+    TestEnumValues()
+    TestEnumString()
+    TestEnumCustomValues()
+    TestEnumEquality()
+    let r = handle_color(Color.RED)
+    if r == "red" { println("enum handle: ok") }
+    println("==== enum all ok ====")
+}

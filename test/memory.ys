@@ -1,0 +1,82 @@
+package memory_t
+
+# ========================================
+# 取地址操作 @
+# Address-of operator @
+# ========================================
+
+func TestAddr() {
+    let a = 42
+    let p = @a
+    if @>p == 42 { println("addr: ok") }
+}
+
+# ========================================
+# 解引用操作 @>
+# Dereference operator @>
+# ========================================
+
+func TestDeref() {
+    let a = 10
+    let p = @a
+    let v = @>p
+    if v == 10 { println("deref: ok") }
+}
+
+# ========================================
+# 解引用写入
+# Dereference write
+# ========================================
+
+func TestDerefWrite() {
+    let a = 10
+    let p = @a
+    @>p = 99
+    if a == 99 { println("deref write: ok") }
+}
+
+# ========================================
+# 内存分配与释放
+# Memory allocation and free
+# ========================================
+
+func TestAlloc() {
+    let buf = alloc(4)
+    @>buf = 42
+    if @>buf == 42 { println("alloc: ok") }
+    free(buf)
+}
+
+# ========================================
+# 指针交换值
+# Pointer value swap
+# ========================================
+
+func swap(xp, yp) {
+    let t = @>xp
+    @>xp = @>yp
+    @>yp = t
+}
+
+func TestSwap() {
+    let a = 1
+    let b = 2
+    let ap = @a
+    let bp = @b
+    swap(ap, bp)
+    if a == 2 and b == 1 { println("swap: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestMemoryAll() {
+    TestAddr()
+    TestDeref()
+    TestDerefWrite()
+    TestAlloc()
+    TestSwap()
+    println("==== memory all ok ====")
+}

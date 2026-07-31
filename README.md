@@ -17,7 +17,12 @@ YScript 是一门面向网络安全领域的脚本语言，提供丰富的内置
 
 ## 演示
 
-[完整演示文件：](service_scanner.ys)
+[完整演示文件](service_scanner.ys)
+
+## 插件
+
+- **Vim/Nvim**：[Vim/Nvim插件](https://github.com/xiguayiqiu/YScript-vim)
+- **VScode**：[VScode插件](https://github.com/xiguayiqiu/YScript-vscode)
 
 ## 快速开始
 

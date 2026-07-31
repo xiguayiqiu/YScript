@@ -17,8 +17,8 @@ YScript 是一门面向网络安全领域的脚本语言，提供丰富的内置
 
 ## 演示
 
-[完整演示文件](service_scanner.ys)
-[二进制处理](test/binary_lib.ys)
+- [完整演示文件](service_scanner.ys)
+- [二进制处理](test/binary_lib.ys)
 
 ## 插件
 

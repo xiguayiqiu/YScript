@@ -56,7 +56,7 @@ func TestShellExtAll() {
 #**
 * 可以直接将shell命令嵌入变量
 * You can embed shell commands directly within variables.
-#**
+*#
 func Shells(){
     let shells = `ip -c addr`
 }

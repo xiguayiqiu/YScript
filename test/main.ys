@@ -19,6 +19,7 @@ import "error_codes"
 import "safe"
 import "generics"
 import "comprehensive"
+import "features"
 
 # ========================================
 # 主入口：依次调用各模块测试函数
@@ -58,6 +59,7 @@ func main() {
     TestGenericsAll()
     println("")
     TestComprehensiveAll()
+    TestFeaturesAll()
     
     println("")
     println("========================================")

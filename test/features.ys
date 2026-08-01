@@ -1,0 +1,239 @@
+package features_t
+
+# ========================================
+# 新增语言特性回归测试
+# New language feature regression tests
+# ========================================
+
+# 闭包捕获（计数器）
+func make_counter() {
+    let n = 0
+    return func() { n = n + 1; return n }
+}
+
+func add2(a, b) { return a + b }
+func dbl(x) { return x * 2 }
+func scan_def(target, port = 80, verbose = false) {
+    if verbose { return target + ":" + string(port) + ":v" }
+    return target + ":" + string(port)
+}
+
+struct FeaturePoint { x: int, y: int }
+func this.compute() { return this.x + this.y }
+func this.name() { return "FeaturePoint" }
+
+struct FeatureBox { v: int }
+func this.compute() { return this.v * 2 }
+func this.name() { return "FeatureBox" }
+
+# 多返回值
+func pair() { return 7, "seven" }
+
+func TestTernary() {
+    let y = 5 > 3 ? "big" : "small"
+    let z = 1 > 3 ? "big" : "small"
+    if y == "big" and z == "small" { println("ternary: ok") }
+}
+
+func TestMatchMultiRange() {
+    let code = 404
+    let hit = ""
+    match code {
+        200, 201 => { hit = "ok" }
+        301, 302 => { hit = "redirect" }
+        500..599 => { hit = "server" }
+        400..499 => { hit = "client" }
+        _ => { hit = "other" }
+    }
+    if hit == "client" { println("match multi/range: ok") }
+}
+
+func TestSwitch() {
+    let x = 5
+    let out = ""
+    switch x {
+        case 1: { out = "one" }
+        case 5 { out = "five" }
+        default { out = "other" }
+    }
+    if out == "five" { println("switch: ok") }
+}
+
+func TestMultiReturn() {
+    let a, b = pair()
+    let p, q
+    p, q = pair()
+    if a == 7 and b == "seven" and p == 7 and q == "seven" {
+        println("multi return: ok")
+    }
+}
+
+func TestClosureCapture() {
+    let c = make_counter()
+    let r1 = c()
+    let r2 = c()
+    if r1 == 1 and r2 == 2 { println("closure capture: ok") }
+}
+
+func TestHigherOrder() {
+    let nums = [1, 2, 3]
+    let doubled = array.Map(nums, dbl)
+    if json.stringify(doubled) == "[2,4,6]" { println("hof: ok") }
+}
+
+func TestStructMethods() {
+    let p = FeaturePoint{x: 3, y: 4}
+    if p.compute() == 7 and p.name() == "FeaturePoint" {
+        println("struct methods: ok")
+    }
+}
+
+func TestInterfacePoly() {
+    let a = FeaturePoint{x: 1, y: 2}
+    let b = FeatureBox{v: 21}
+    let items = [a, b]
+    let total = 0
+    for it in items {
+        total = total + it.compute()
+    }
+    if total == 45 { println("interface poly: ok") }
+}
+
+func TestForInStringDict() {
+    let chars = []
+    for ch in "ab" {
+        chars.append(ch)
+    }
+    let d = {"k1": 1, "k2": 2}
+    let keys = []
+    for k, v in d {
+        keys.append(k)
+    }
+    if len(chars) == 2 and len(keys) == 2 { println("for-in string/dict: ok") }
+}
+
+func TestRangeSyntax() {
+    let s = 0
+    for i in 0..4 {
+        s = s + i
+    }
+    if s == 10 { println("range syntax: ok") }
+}
+
+func TestWaitGroup() {
+    let wg = sync.WaitGroup()
+    let done_count = 0
+    let i = 0
+    while i < 3 {
+        wg.add(1)
+        let w = warp {
+            wg.done()
+        }
+        i = i + 1
+    }
+    wg.wait()
+    println("waitgroup: ok")
+}
+
+func TestEval() {
+    let r = eval("40 + 2")
+    if r == 42 { println("eval: ok") }
+}
+
+func TestRegexReplaceFn() {
+    let s = regex.replace_fn("[0-9]", "a1b2", func(m) { return "[" + m + "]" })
+    if s == "a[1]b[2]" { println("regex.replace_fn: ok") }
+}
+
+func TestWarpAwait() {
+    let w = warp {
+        return 42
+    }
+    let r = w.await()
+    if r == 42 { println("warp await: ok") }
+}
+
+func TestSelectBlocking() {
+    let ch = sync.Chan(1)
+    let w = warp {
+        os.sleep(20)
+        ch.send("hi")
+    }
+    let r = sync.select(sync.case(ch, func(v) { return v }))
+    if r == "hi" { println("sync.select: ok") }
+    w.await()
+}
+
+func TestDefaultParams() {
+    let a = scan_def("h1")
+    let b = scan_def("h2", 443)
+    let c = scan_def("h3", 8080, true)
+    if a == "h1:80" and b == "h2:443" and c == "h3:8080:v" {
+        println("default params: ok")
+    }
+}
+
+func TestTimers() {
+    let t = time.new_timer(50)
+    if t.ready() { println("timers: ok"); return }
+    t.wait()
+    if t.ready() { println("timers: ok") }
+    let tk = time.new_ticker(20)
+    let n = 0
+    while n < 2 {
+        tk.wait()
+        n = n + 1
+    }
+    tk.stop()
+    if n == 2 { println("ticker: ok") }
+}
+
+func TestFFI() {
+    let libc_paths = ["/usr/lib/libc.so.6", "/lib/x86_64-linux-gnu/libc.so.6", "/lib64/libc.so.6", "/usr/lib/x86_64-linux-gnu/libc.so.6"]
+    let libc = nil
+    let i = 0
+    while i < len(libc_paths) {
+        let l = ffi.open(libc_paths[i])
+        if l != nil { libc = l; break }
+        i = i + 1
+    }
+    if libc == nil { println("ffi: skip (libc not found)"); return }
+    let getpid = ffi.bind(libc, "getpid", "int", [])
+    let pid = getpid()
+    let strlen = ffi.bind(libc, "strlen", "int", ["string"])
+    let n = strlen("hello")
+    if pid > 0 and n == 5 { println("ffi: ok") }
+}
+
+func TestPcapFileIO() {
+    let pkt = b"\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\x08\x00payload"
+    let path = "/tmp/yscript_pcap_test.pcap"
+    let wrote = raw.PcapWriteFile(path, [{"data": pkt, "timestamp": 1700000000000000000}])
+    let back = raw.PcapReadFile(path)
+    io.remove(path)
+    if wrote == 1 and len(back) == 1 and back[0].length == len(pkt) {
+        println("pcap file io: ok")
+    }
+}
+
+func TestFeaturesAll() {
+    TestTernary()
+    TestMatchMultiRange()
+    TestSwitch()
+    TestMultiReturn()
+    TestClosureCapture()
+    TestStructMethods()
+    TestInterfacePoly()
+    TestForInStringDict()
+    TestRangeSyntax()
+    TestWaitGroup()
+    TestEval()
+    TestRegexReplaceFn()
+    TestWarpAwait()
+    TestSelectBlocking()
+    TestDefaultParams()
+    TestTimers()
+    TestFFI()
+    TestPcapFileIO()
+    println("==== features all ok ====")
+}

@@ -1,4 +1,11 @@
-📖 **[学习文档 →](https://github.com/xiguayiqiu/YScript/wiki)**
+<div align="center">
+
+[![Go](https://img.shields.io/badge/Go-1.26.4-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555555?style=flat-square&logo=linux&logoColor=white)](#快速开始)
+[![CUDA](https://img.shields.io/badge/CUDA-optional-76B900?style=flat-square&logo=nvidia&logoColor=white)](#特性速览)
+[![License](https://img.shields.io/badge/License-Apache--2.0-D22128?style=flat-square&logo=apache&logoColor=white)](LICENSE)
+
+</div>
 
 <div align="center">
   <img src="icon.png" alt="YScript Logo" width="128" height="128">
@@ -14,7 +21,7 @@
 把「协议解析 / 抓包分析 / 密码学运算 / 漏洞验证」这类工作从零散的 Shell 命令，
 变成可读、可复用、可版本管理的脚本。
 
-[📖 在线学习文档（51 篇）](https://github.com/xiguayiqiu/YScript/wiki)
+### 📖 [在线学习文档（51 篇）](https://github.com/xiguayiqiu/YScript/wiki)
 
 </div>
 

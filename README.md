@@ -1,9 +1,20 @@
+<div align="center">
+  <img src="icon.png" alt="YScript Logo" width="128" height="128">
+</div>
+
 # YScript
 
-一套用 Go 实现的脚本语言：动态类型、`catch/match/ensure` 异常、`warp` 协程、
-40+ 标准库命名空间，面向网络协议解析、二进制处理与系统自动化场景。
+<div align="center">
 
-```
+**面向网络安全工作的脚本语言**
+
+用 Go 实现，单文件 `ysc` 即可运行，无需编译环境。
+把「协议解析 / 抓包分析 / 密码学运算 / 漏洞验证」这类工作从零散的 Shell 命令，
+变成可读、可复用、可版本管理的脚本。
+
+</div>
+
+```yscript
 $ cat hello.ys
 package main
 
@@ -15,96 +26,267 @@ $ ysc hello.ys
 Hello, YScript!
 ```
 
+> 📦 **本仓库为发布仓库**：只包含可直接阅读、运行的**示例脚本与测试套件**。
+> 解释器源码与完整中文手册在开发仓库中维护（见文末[仓库定位](#仓库定位)）。
+
+---
+
+## 什么是 YScript
+
+YScript 是一门**为安全工作者设计**的动态类型脚本语言。它不是通用语言的替代品，
+而是补上了安全工具链里长期缺失的一环：**用一门真正的编程语言，去表达安全工作中
+那些「结构复杂、逻辑密集、步骤繁琐」的任务**。
+
+### 为什么需要它
+
+传统做法通常有三种，都不太舒服：
+
+| 做法 | 问题 |
+|------|------|
+| 拼 Shell 命令 | 解析二进制、状态分支、错误处理都很别扭；`bash` 处理结构化数据能力弱 |
+| 写 Python 脚本 | 环境依赖多（`scapy`/`cryptography` 等）、分发困难、启动开销大 |
+| 写 C / Go 工具 | 一个几十行的协议解析工具要编译、要建工程，改一行就要重新构建 |
+
+YScript 把这些痛点合并成一个答案：**语法接近 Python 的脚本体验，
+能力接近 Go 的标准库**。
+
+### 它擅长什么
+
+```yscript
+// 1. 协议解析 —— binary 命名空间 99 个函数，大小端/流抽象一应俱全
+let head = binary.BigEndian().PutUint16(80)     // b"\x00\x50"
+let port = binary.Uint16(head)                  // 80
+
+// 2. 网络通信 —— socket 统一 TCP/UDP/TLS，一个对象三种协议
+let s = socket.Socket("tcp")
+s.connect("192.168.1.1", 22)
+s.set_timeout(3000)
+let banner = s.recv_line()                      // SSH banner
+println(binary.UTF8(banner))
+
+// 3. 密码学 —— 35 个 crypto 函数，含 WPA2 全套
+let pmk = crypto.WPA2_PMK(passphrase, ssid)
+crypto.WPA2_MIC_Verify(pmk, eapol, mic)
+
+// 4. 抓包取证 —— raw + pcap，直接读原始帧
+let h = raw.PcapOpen("eth0", "tcp port 80")
+let pkt = raw.PcapNext(h)                      // 实时抓包（libpcap）
+let rec = raw.PcapReadFile("cap.pcap")         // 或纯 Go 解析文件
+
+// 5. Shell 与系统 —— 反引号即命令，进程/路径/定时器一应俱全
+let out = `nmap -sV -p 22,80,443 {target}`
+os.exec("aircrack-ng", ["-b", "wpa.cap"])
+```
+
+### 写起来是什么感觉
+
+```yscript
+// 异常：一行兜底，不用写 try/catch 样板代码
+let n = parse_int(user_input) catch 0
+
+// 带类型异常分流：连接失败和超时分开处理
+catch {
+    socket.Socket("tcp").connect(host, port)
+} match {
+    ConnectError(e) -> log.error("连接失败: " + e)
+    TimeoutError(e) -> log.error("超时: " + e)
+    _               -> log.error("其它错误")
+} ensure {
+    cleanup()          // 无论成败都执行
+}
+
+// 继承多态：把「基类 - 子类 - 子类」写成清晰的层次
+struct Animal {
+    name: string
+}
+func this.speak() -> string { return "..." }
+
+struct Dog extends Animal {
+    breed: string
+}
+func this.speak() -> string { return "汪汪" }
+func this.describe() -> string { return super.describe() + "，是只" + this.breed }
+```
+
+### 安全领域的实际用例
+
+仓库中的示例都是真实场景，可直接阅读：
+
+| 场景 | 文件 |
+|------|------|
+| **WPA2 握手包破解**（PMK/PTK 派生 + MIC 校验，支持 GPU 加速） | [`test/wifi_crack.ys`](test/wifi_crack.ys) |
+| WPA2 破解流程（英文版 / 结果校验） | [`test/wifi_verify.ys`](test/wifi_verify.ys) |
+| WPA2 字典破解性能测试 | [`test/wifi_speed.ys`](test/wifi_speed.ys) |
+| **服务端口扫描与指纹识别** | [`service_scanner.ys`](service_scanner.ys) |
+| 网络协议与 socket 实战 | [`test/net_ext.ys`](test/net_ext.ys) |
+| 二进制格式解析与修补 | [`test/binary_lib.ys`](test/binary_lib.ys) |
+
+### 安全边界：沙箱与许可
+
+安全工具需要执行危险操作，YScript 把权限控制做成**语言层面的显式声明**：
+
+```yscript
+#!permit file_read:/etc/*, exec:nmap, network
+```
+
+脚本声明所需权限，未授权的操作会被拦截；也可通过命令行策略覆盖。
+详见《39 预处理器指令》。
+
 ---
 
 ## 特性速览
 
 | 能力 | 说明 |
 |------|------|
-| **异常** | `expr catch h`、`catch { } match { T(e) -> }`、`ensure` 清理块、`raise T("msg")` |
+| **密码学** | `crypto` 35 个函数：SHA/SHA3/SHAKE、AES-GCM、ChaCha20、HMAC、PBKDF2、ECDSA、Ed25519、**WPA2 全套** |
+| **协议分析** | `binary` 99 个函数：大小端编解码、字节容器、流抽象、**等长安全修补** |
+| **网络** | `socket` 统一 TCP/UDP/TLS 对象；`net` 底层连接；`raw` 原始帧 + **pcap 抓包**；`ssl` 证书与 TLS |
+| **系统与 Shell** | 反引号直接执行命令；`os` 进程管理、`sys` 系统信息、`path` 路径处理 |
 | **并发** | `warp` 轻量协程 + `sync` 全套同步原语（Mutex/RWMutex/Chan/TLS/WaitGroup/Once/WorkerPool） |
-| **面向对象** | `struct` 方法、接口多态、**继承多态**（`extends` + `super`）、泛型注解 |
-| **二进制** | `binary` 命名空间 99 个函数：字节容器、大小端编解码、流抽象、**等长安全修补** |
-| **网络** | `socket` 统一 TCP/UDP/TLS 对象；`net` / `raw` / `ssl` 底层能力；pcap 抓包 |
-| **系统** | 进程、Shell、文件路径、定时器、日志、CUDA 加速、FFI 动态库调用 |
-| **工程** | 预处理器、REPL 会话、`.ybc` 字节码落盘（`--emit`）、交叉编译、中英双语 i18n |
+| **异常** | `expr catch h` 一行兜底、`catch {} match { T(e) -> }` 按类型分流、`ensure` 保证清理 |
+| **面向对象** | `struct` 方法、接口多态、继承多态（`extends` + `super`）、泛型注解 |
+| **GPU 加速** | `cuda` 命名空间支持密码学运算批处理，无 GPU 时自动降级 CPU |
+| **FFI** | `ffi` 真实 ABI 调用动态库（0-8 参数，int/string/void 返回） |
+| **工程** | 预处理器、REPL 会话、`.ybc` 字节码落盘、交叉编译、中英双语 i18n |
 
 ---
 
 ## 快速开始
 
-### 构建
+本仓库不含可执行文件，需先安装 `ysc`（YScript 解释器）：
 
 ```bash
-cd yscript
-make            # 编译本机 ysc（自动检测 CUDA）
-make all        # 交叉编译全部平台并打包为 tar.xz（产物在 dist/）
-make all -j8    # 并行编译，更快
-make static     # 纯静态、无 cgo（可移植）
-make linux      # 交叉编译 Linux amd64
-make windows    # 交叉编译 Windows amd64
-make darwin     # 交叉编译 macOS arm64
-make help       # 查看全部目标
-```
-
-`make all` 默认为下列 6 个平台各产出一个 `tar.xz`（并生成 `SHA256SUMS`）：
-
-| 平台 | 产物 |
-|---|---|
-| `linux/amd64`、`linux/arm64` | `dist/ysc-<版本>-linux-<arch>.tar.xz` |
-| `darwin/amd64`、`darwin/arm64` | `dist/ysc-<版本>-darwin-<arch>.tar.xz` |
-| `windows/amd64`、`windows/arm64` | `dist/ysc-<版本>-windows-<arch>.tar.xz` |
-
-```bash
-make all PLATFORMS="linux/amd64 windows/amd64"   # 只打指定平台
-make dist-linux-amd64                            # 只做单个平台
-make dist                                        # 额外保留解包目录
-make dist-clean                                  # 清理 dist/
-```
-
-> **发布版产物**：`-s -w` 去掉符号表与 DWARF 调试信息，`-trimpath` 去掉
-> 构建机绝对路径（源码目录 / GOPATH），既防信息泄露又保证可复现构建。
-> 二者由 `RELEASE_LDFLAGS` / `TRIMPATH` 强制指定，覆盖 `LDFLAGS` 也不会失效
-> （`LDFLAGS` 仅作为附加标志追加，例如 `-X main.version=...`）。
->
-> 交叉编译一律关闭 CGO（无法跨平台链接），故 CUDA 自动降级为 CPU stub；
-> 需要 CUDA 请在本机执行 `make`（仅 linux/amd64 生效）。
-
-产物为 `ysc`。运行：
-
-```bash
-ysc script.ys             # 执行脚本
+ysc hello.ys             # 执行脚本
 ysc                       # 无参数 = 进入 REPL 会话
 ysc -e 'println(1+1)'     # 直接执行一段代码
-ysc -c script.ys          # 仅做语法检查，不执行
+ysc -c hello.ys           # 仅做语法检查，不执行
 ysc --emit a.ybc x.ys     # 导出字节码
-ysc --sandbox policy.json # 按沙箱策略限制权限
 ysc -h                    # 查看全部选项
 ```
 
-### 第一个程序
+### 第一个程序：探测一个端口
 
 ```yscript
 package main
 
 func main() {
-    // 集合与迭代
-    let xs = [1, 2, 3, 4]
-    let evens = []
-    for x in xs {
-        if x % 2 == 0 { evens.append(x) }
-    }
-    println("偶数: " + string(evens))
+    let host = "192.168.1.1"
+    let port = 22
 
-    // 异常处理：一行兜底
+    // 探测端口是否开放：一行即可，失败自动返回 false
+    if socket.tcp_probe(host, port) {
+        println("SSH 端口开放")
+
+        // 连上去读 banner
+        let s = socket.Socket("tcp")
+        s.connect(host, port)
+        s.set_timeout(3000)
+        println(binary.UTF8(s.recv_line()))
+        s.close()
+    } else {
+        println("端口关闭或被过滤")
+    }
+
+    // 解析失败不中断脚本：一行兜底
     let n = parse_int("abc") catch 0
     println("解析失败取默认值: " + string(n))
 }
 ```
 
+对照一下，同样的事如果用 Shell 写，需要 `nc`/`timeout`/`grep` 串联，
+且无法优雅地区分「连接被拒」和「超时」——YScript 里这只是一个 `match`。
+
+---
+
+## 示例脚本
+
+### [`service_scanner.ys`](service_scanner.ys) — 服务端口扫描器
+
+一个可读的完整实战示例：`init()` 中建立端口 → 服务名映射表，运行时结合 `socket` 与 Shell 命令完成端口探测。
+
+```yscript
+init() {
+    SERVICES.set(21,  "FTP")
+    SERVICES.set(22,  "SSH")
+    SERVICES.set(80,  "HTTP")
+    SERVICES.set(443, "HTTPS")
+    # ... 共 100+ 常用服务
+}
+```
+
+---
+
+## 测试套件（33 个 `.ys` 示例）
+
+`test/` 下的脚本既是**回归测试**，也是**按特性组织的语法示例**，可直接阅读学习。
+
+| 特性 | 文件 |
+|------|------|
+| 入口 / 总览 | [`main.ys`](test/main.ys) · [`comprehensive.ys`](test/comprehensive.ys) · [`features.ys`](test/features.ys) |
+| 继承多态 | [`poly.ys`](test/poly.ys) |
+| 异常捕获 | [`exception_catch.ys`](test/exception_catch.ys) · [`error_codes.ys`](test/error_codes.ys) · [`safe.ys`](test/safe.ys) |
+| 切片 | [`slice.ys`](test/slice.ys) |
+| 二进制 | [`binary_lib.ys`](test/binary_lib.ys) · [`memory.ys`](test/memory.ys) |
+| 网络 | [`net_ext.ys`](test/net_ext.ys) |
+| 并发 | [`sync.ys`](test/sync.ys) |
+| 面向对象 | [`struct.ys`](test/struct.ys) · [`interface.ys`](test/interface.ys) · [`enum.ys`](test/enum.ys) · [`generics.ys`](test/generics.ys) |
+| 集合 / 迭代 | [`rf2.ys`](test/rf2.ys) |
+| 文件与系统 | [`sys.ys`](test/sys.ys) · [`shell_ext.ys`](test/shell_ext.ys) · [`io_ext.ys`](test/io_ext.ys) |
+| 文本 / 时间 | [`time_lib.ys`](test/time_lib.ys) |
+| 配置解析 | [`toml_ext.ys`](test/toml_ext.ys) · [`ini_ext.ys`](test/ini_ext.ys) · [`yaml_ext.ys`](test/yaml_ext.ys) |
+| WiFi 实战 | [`wifi_crack.ys`](test/wifi_crack.ys) · [`wifi_verify.ys`](test/wifi_verify.ys) · [`wifi_speed.ys`](test/wifi_speed.ys) |
+
+### 代码示例
+
+**继承多态**（[`test/poly.ys`](test/poly.ys)）—— Java 风格的 `extends` / 方法重写 / `super` 复用：
+
+```yscript
+struct Animal {
+    name: string
+}
+func this.speak() -> string { return "..." }
+func this.describe() -> string { return "我是 " + this.name }
+
+struct Dog extends Animal {
+    breed: string
+}
+func this.speak() -> string { return "汪汪" }
+func this.describe() -> string {
+    return super.describe() + "，是只" + this.breed
+}
+```
+
+**带类型异常分流**（[`test/exception_catch.ys`](test/exception_catch.ys)）—— `match` 按异常类型分支，`ensure` 保证清理：
+
+```yscript
+func scan_host(host: string) {
+    catch {
+        let sock = connect(host)
+        println("  已连接 " + sock)
+    } match {
+        NetError(e)     -> println("  连接失败: " + e),
+        TimeoutError(e) -> println("  超时: " + e),
+    } ensure {
+        println("  释放资源 " + host)
+    }
+}
+```
+
+> `ensure` 在未命中 `match`（异常继续透传）时**也会执行**，
+> 因此异常无论被谁捕获，资源都一定被释放。
+
+**一行兜底**：
+
+```yscript
+let n = parse_int("abc") catch 0          // 失败取默认值
+let s = connect(host, port) catch return  // 失败即返回
+```
+
 ---
 
 ## 标准库命名空间
+
+40+ 命名空间，按用途分组：
 
 | 分组 | 命名空间 |
 |------|----------|
@@ -129,9 +311,7 @@ let port = binary.Uint16(b"\x00\x50")    // 80
 
 // 流抽象
 let w = binary.NewWriter()
-binary.WriteString(w, "hello ")
-binary.WriteUint32(w, 0x01020304)
-binary.WriterBytes(w)
+binary.WriteString(w, "hello")
 binary.CloseWriter(w)
 
 // 二进制修补（等长覆盖，防损坏）
@@ -187,63 +367,40 @@ catch {
 
 ## 文档
 
-完整手册见 [`doc/`](doc/)，共 48 章 + 更新日志：
+完整手册共 **48 章 + 更新日志**，存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：37 命名空间 + 6 类型 / 729 个函数）：
 
 | 主题 | 章节 |
 |------|------|
-| 语言基础 | [01 类型系统](doc/01_类型系统.md) [02 变量与常量](doc/02_变量与常量.md) [03 流程控制](doc/03_流程控制.md) [04 函数](doc/04_函数.md) |
-| 数据结构 | [09 数组](doc/09_数组.md) [08 集合类型](doc/08_集合类型.md) [07 字节序列](doc/07_字节序列.md) [44 切片](doc/44_切片.md) |
-| 面向对象 | [10 结构体与方法](doc/10_结构体与方法.md) [11 接口](doc/11_接口.md) [46 继承与多态](doc/46_继承与多态.md) |
-| 异常 | [18 错误处理](doc/18_错误处理.md) [48 异常捕获](doc/48_异常捕获.md) |
-| 并发 | [27 并发](doc/27_并发.md) [28 warp协程](doc/28_warp并发线程.md) [29 warp同步原语](doc/29_warp同步原语.md) [47 协程与互斥锁](doc/47_协程与互斥锁.md) |
-| 字节流 | [20 字节流处理](doc/20_字节流处理.md) |
-| 网络 | [30 网络通信](doc/30_网络通信.md) [45 TCP与UDP](doc/45_TCP与UDP网络编程.md) [31 raw原始帧](doc/31_raw网络原始帧操作.md) [32 SSL](doc/32_ssl安全套接层.md) |
-| 系统 | [16 文件与路径](doc/16_文件与路径.md) [25 系统与进程](doc/25_系统与进程库.md) [37 日志库](doc/37_日志库.md) |
-| 速查 | [**49_函数速查表.md**](doc/函数速查表.md)（37 命名空间 + 6 类型 / 729 个函数）· [05 关键字速查](doc/05_关键字速查.md) |
-| 其它 | [00 实现状态](doc/00_实现状态.md) [**Log.md 更新日志**](doc/Log.md) |
+| 语言基础 | 01 类型系统 · 02 变量与常量 · 03 流程控制 · 04 函数 · 04 运算符 |
+| 数据结构 | 06 字符串操作 · 07 字节序列 · 08 集合类型 · 09 数组 · 44 切片 |
+| 面向对象 | 10 结构体与方法 · 11 接口 · 46 继承与多态 |
+| 异常 | 18 错误处理 · 48 异常捕获 |
+| 并发 | 27 并发 · 28 warp 协程 · 29 同步原语 · 47 协程与互斥锁 |
+| 字节流 | 20 字节流处理 |
+| 网络 | 30 网络通信 · 45 TCP 与 UDP · 31 raw 原始帧 · 32 SSL |
+| 系统 | 16 文件与路径 · 25 系统与进程 · 37 日志库 |
+| 速查 | 00 实现状态 · 05 关键字速查 · 函数速查表 |
 
-编辑器支持：[vim 插件](vim/) · [VSCode 插件](vscode/)
-
----
-
-## 项目结构
-
-```
-y_script/
-├── yscript/              解释器主仓库（Go）
-│   ├── cmd/yscript/      命令行入口
-│   ├── internal/
-│   │   ├── lexer parser checker compiler   前端
-│   │   ├── bytecode vm                      运行时
-│   │   ├── value                            值表示与类型系统
-│   │   ├── preproc i18n                     预处理器 / 中英双语
-│   │   └── std/                             40+ 标准库命名空间
-│   ├── test/              YScript 测试套件
-│   └── Makefile
-├── doc/                  48 章中文手册 + Log.md
-├── vim/  vscode/          编辑器插件
-├── testexe/              二进制修补实验目标
-└── wifi/                 实战项目（WiFi 相关）
-```
+编辑器支持：**vim 插件** · **VSCode 插件**（语法高亮 / LSP 智能补全 / 悬停文档 / 跳转定义）。
 
 ---
 
-## 开发
+## 仓库定位
 
-```bash
-make test    # go test ./cmd/... ./internal/...
-make vet     # go vet
-make fmt     # gofmt
-make clean   # 清理产物
-```
+| 仓库 | 用途 | 内容 |
+|------|------|------|
+| **YScript**（本仓库） | **发布仓库** | 示例脚本、测试套件、许可证 |
+| 开发仓库 | 源码维护 | Go 解释器源码、`doc/` 完整手册、`vim/` `vscode/` 插件、`Makefile` 构建 |
+
+本仓库通过 `.gitignore` 采用「默认忽略 + 白名单」策略（`/*` 之后仅放行
+`service_scanner.ys`、`test/**`、`README*`），确保发布内容干净可控。
 
 ---
 
 ## 版本
 
-当前版本 **v0.1.4**（见 `yscript/cmd/yscript/main.go` → `const version`）。
-完整变更记录见 [doc/Log.md](doc/Log.md)。
+当前版本 **v0.1.4**。完整变更记录见开发仓库的 `doc/Log.md`。
 
 ## 许可
 
-见 [LICENSE](yscript/LICENSE)。
+Apache-2.0，见 [LICENSE](LICENSE)。

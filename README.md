@@ -1,14 +1,14 @@
 <div align="center">
+  <img src="icon.png" alt="YScript Logo" width="128" height="128">
+</div>
+
+<div align="center">
 
 [![Go](https://img.shields.io/badge/Go-1.26.4-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
 [![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555555?style=flat-square&logo=linux&logoColor=white)](#快速开始)
 [![CUDA](https://img.shields.io/badge/CUDA-optional-76B900?style=flat-square&logo=nvidia&logoColor=white)](#特性速览)
 [![License](https://img.shields.io/badge/License-Apache--2.0-D22128?style=flat-square&logo=apache&logoColor=white)](LICENSE)
 
-</div>
-
-<div align="center">
-  <img src="icon.png" alt="YScript Logo" width="128" height="128">
 </div>
 
 # YScript

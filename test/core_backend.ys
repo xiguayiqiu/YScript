@@ -1,0 +1,41 @@
+package main
+
+func main() {
+    let x = 42
+    println("x =", x)
+    let f = 3.5
+    println("f =", f)
+    let b = x > 10
+    println("b =", b)
+    println("sum =", x + 8)
+    let pi = 3.14159
+    println("pi*2 =", pi * 2)
+    if x > 40 {
+        println("big")
+    } else {
+        println("small")
+    }
+    let i = 0
+    while i < 3 {
+        println("i =", i)
+        i = i + 1
+    }
+    let j = 0
+    for j = 0; j < 3; j = j + 1 {
+        println("j =", j)
+    }
+    println("final =", j)
+    let name = "world"
+    println("hello " + name)
+    switch x {
+    case 10: {
+        println("ten")
+    }
+    case 42 {
+        println("forty-two")
+    }
+    default: {
+        println("other")
+    }
+    }
+}

@@ -1,0 +1,9 @@
+package main
+
+func main() {
+    let a = "foo"
+    let b = "bar"
+    let c = a + b
+    println(c)
+    println("x" + "y")
+}

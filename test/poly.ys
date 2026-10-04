@@ -1,0 +1,99 @@
+package poly_t
+
+# ========================================
+# 继承多态测试（Java 风格：extends / 重写 / super / 动态分派）
+# Polymorphism feature tests
+# ========================================
+
+struct Animal {
+    name: string
+}
+func this.speak() -> string { return "..." }
+func this.describe() -> string { return "我是 " + this.name }
+func this.legs() -> int { return 4 }
+
+struct Dog extends Animal {
+    breed: string
+}
+func this.speak() -> string { return "汪汪" }
+func this.describe() -> string {
+    return super.describe() + "，是只" + this.breed
+}
+
+struct Puppy extends Dog {
+}
+func this.describe() -> string {
+    return super.describe() + "(幼)"
+}
+
+struct Cat extends Animal {
+}
+func this.speak() -> string { return "喵" }
+
+func check_poly(got, want, tag) {
+    if string(got) != want {
+        println("poly FAIL [" + tag + "] got=" + string(got) + " want=" + want)
+        exit(1)
+    }
+}
+
+func TestPolyOverride() {
+    let a = Animal{name: "无名"}
+    let d = Dog{name: "旺财", breed: "柴犬"}
+    let c = Cat{name: "咪咪"}
+
+    check_poly(a.speak(), "...", "base-speak")
+    check_poly(d.speak(), "汪汪", "override-speak")
+    check_poly(c.speak(), "喵", "sibling-override")
+
+    # 未重写的方法从父类继承
+    check_poly(a.legs(), "4", "base-legs")
+    check_poly(d.legs(), "4", "inherited-legs")
+    check_poly(c.legs(), "4", "inherited-legs-cat")
+
+    # super：子类复用父类实现并扩展
+    check_poly(a.describe(), "我是 无名", "base-desc")
+    check_poly(d.describe(), "我是 旺财，是只柴犬", "super-desc")
+    check_poly(c.describe(), "我是 咪咪", "cat-desc")
+}
+
+func TestPolyMultilevel() {
+    let p = Puppy{name: "小奶狗", breed: "柯基"}
+    # 不重写 speak → 沿链继承 Dog 的实现
+    check_poly(p.speak(), "汪汪", "multi-level-speak")
+    # describe 链式 super（Puppy→Dog→Animal）
+    check_poly(p.describe(), "我是 小奶狗，是只柯基(幼)", "multi-level-super")
+    check_poly(p.legs(), "4", "multi-level-inherit")
+}
+
+func TestPolyDispatch() {
+    # 多态容器：统一以基类语义调用，各自分派到具体实现
+    let zoo = [Animal{name: "无名"}, Dog{name: "旺财", breed: "柴犬"}, Cat{name: "咪咪"}]
+    let sounds = []
+    for animal in zoo { sounds.append(animal.speak()) }
+    check_poly(string(sounds), "[..., 汪汪, 喵]", "polymorphic-list")
+}
+
+func TestPolyIntrospect() {
+    let d = Dog{name: "旺财", breed: "柴犬"}
+    let p = Puppy{name: "小奶狗", breed: "柯基"}
+
+    if d.is_a("Animal") and d.is_a("Dog") { println("") } else {
+        println("poly FAIL [is_a-direct]")
+        exit(1)
+    }
+    check_poly(p.is_a("Animal"), "true", "is_a-transitive")
+    check_poly(p.is_a("Dog"), "true", "is_a-parent")
+    check_poly(p.is_a("Cat"), "false", "is_a-unrelated")
+    check_poly(d.is_a("Cat"), "false", "is_a-negative")
+    check_poly(d.type_name(), "Dog", "type_name")
+    check_poly(p.type_name(), "Puppy", "type_name-sub")
+}
+
+func TestPolyAll() {
+    TestPolyOverride()
+    TestPolyMultilevel()
+    TestPolyDispatch()
+    TestPolyIntrospect()
+    println("==== poly all ok ====")
+}

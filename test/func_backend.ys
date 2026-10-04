@@ -1,0 +1,64 @@
+package main
+
+func add(a, b) {
+    return a + b
+}
+
+func greet(name) {
+    return "hi " + name
+}
+
+func max(a, b) {
+    if a > b {
+        return a
+    }
+    return b
+}
+
+func main() {
+    let s = add(3, 4)
+    println("add =", s)
+    let g = greet("tom")
+    println(g)
+    println("max =", max(7, 3))
+    let a = "abc"
+    let b = "abd"
+    println("cmp =", a < b)
+    println("eq =", a == "abc")
+    let n = 10
+    n += 5
+    println("n =", n)
+    let r = 7 % 3
+    println("r =", r)
+    let m = 7
+    println("neg =", -(m))
+    let d = 2.5
+    println("d/2 =", d / 2)
+    println("conv =", 9 / 2.0)
+    let big = add(1, 2) * 100
+    println("big =", big)
+    let t = true
+    let f = false
+    let za = t and f
+    let zo = t or f
+    println("and =", za)
+    println("or =", zo)
+    println("not =", not f)
+    let x = 5
+    if x >= 5 and x <= 10 {
+        println("in range")
+    }
+    let q = add(1, 2)
+    if q > 0 {
+        println("positive")
+    }
+    let cnt = 0
+    loop {
+        cnt = cnt + 1
+        if cnt >= 3 {
+            break
+        }
+        println("cnt =", cnt)
+    }
+    println("loop done")
+}

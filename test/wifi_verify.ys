@@ -1,0 +1,94 @@
+package main
+
+func main() {
+    println("==========================================")
+    println("  YScript WPA2 handshake crack test (GPU)")
+    println("==========================================")
+    println("")
+
+    let ssid = "OnePlus 10 Pro"
+    let apmac = "62:0c:eb:c7:73:03"
+    let stamac = "fa:2d:c5:aa:40:00"
+    let anonce = "d8a7185f29ebe50ee41c9c562986be05329f68cc971dbf6e500d1d972ebc480f"
+    let snonce = "7931b8fa48f200eef09607338d2a63ce33b89d731a8caa2dfd1d9841c011b3f2"
+    let mic = "0783fbc6ecda58c1871526017f37daf0"
+    let eapol = "0103007b02010a000000000000000000017931b8fa48f200eef09607338d2a63ce33b89d731a8caa2dfd1d9841c011b3f200000000000000000000000000000000000000000000000000000000000000000783fbc6ecda58c1871526017f37daf0001c301a0100000fac040100000fac040100000fac028c000000000fac06"
+
+    let gpu_available = cuda.available()
+    if gpu_available {
+        let dcount = cuda.device_count()
+        println("GPU acceleration: enabled, devices:", dcount)
+    } else {
+        println("GPU acceleration: not enabled (CPU)")
+    }
+    println("")
+
+    let content = io.read_file("/tmp/wp_small.txt")
+    let raw = strings.Split(content, "\n")
+
+    let passwords = []
+    let i = 0
+    while i < len(raw) {
+        if raw[i] != "" {
+            let _ = passwords.append(raw[i])
+        }
+        i = i + 1
+    }
+
+    let total = len(passwords)
+    println("dict:", total, "passwords")
+    println("cracking...")
+    println("")
+
+    let start = time.now()
+    let found = false
+    let correct = ""
+    let k = 0
+    while k < len(passwords) {
+        let pmk = crypto.WPA2_PMK(passwords[k], ssid)
+        let ptk = crypto.WPA2_PTK(pmk, anonce, snonce, apmac, stamac)
+        if crypto.WPA2_MIC_Verify(ptk.KCK, eapol, mic) {
+            correct = passwords[k]
+            found = true
+            println("")
+            println("[+] MIC verified! password:", correct)
+            break
+        }
+        if k % 200 == 199 {
+            let now = time.now()
+            let ms = time.sub(now, start) / 1000000
+            let pct = (k + 1) * 100 / total
+            let spd = 0
+            if ms > 0 { spd = (k + 1) * 1000 / ms }
+            println("[", pct, "%] tried:", k + 1, "/", total, " speed:", spd, " pwd/s")
+        }
+        k = k + 1
+    }
+
+    let now = time.now()
+    let total_ms = time.sub(now, start) / 1000000
+    println("")
+    println("total time:", total_ms, "ms")
+    println("tried:", k, "/", total)
+    if total_ms > 0 {
+        println("avg speed:", k * 1000 / total_ms, "pwd/s")
+    }
+    println("")
+
+    if found {
+        println("==========================================")
+        println("  !! CRACKED !!")
+        println("==========================================")
+        println("")
+        println("WiFi password:", correct)
+        println("")
+        let pmk2 = crypto.WPA2_PMK(correct, ssid)
+        let ptk2 = crypto.WPA2_PTK(pmk2, anonce, snonce, apmac, stamac)
+        println("PMK:", pmk2)
+        println("KCK:", ptk2.KCK)
+        println("KEK:", ptk2.KEK)
+        println("TK :", ptk2.TK)
+    } else {
+        println("crack failed: password not in dict")
+    }
+}

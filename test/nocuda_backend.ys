@@ -1,0 +1,7 @@
+package main
+
+func main() {
+    let s = "cuda.lib is just a string"
+    println(s)
+    println("hello")
+}

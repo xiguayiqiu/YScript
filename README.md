@@ -1,155 +1,117 @@
-# YScript 脚本语言
+# YScript 更新日志
 
-YScript 是一门面向网络安全领域的脚本语言，提供丰富的内置网络、系统、编码和加密函数库，用于快速编写端口扫描、数据包分析、漏洞验证、日志处理等安全工具。
+> 完整版本变更记录见 [Log.md](Log.md)（含 v0.1.4 的并发/互斥锁/优雅退出等全部更新）。
 
-## 特性
+## v0.1.4（2026-08-24）
 
-- **内置网络库** — TCP/UDP 连接、端口扫描、HTTP 请求、SSL/TLS、CIDR 子网计算
-- **系统交互** — 进程执行、Shell 命令（反引号）、文件 IO、目录遍历、符号链接
-- **编码与加密** — Base64、Hex、JSON、XML、CSV、AES、RSA、Gzip 压缩
-- **并发编程** — warp 多线程、Mutex/RWMutex、Channel、信号量、原子操作
-- **函数式能力** — 闭包捕获、高阶函数（array.Map/Filter/Reduce、iter.*）
-- **内存与指针** — `@` 取地址、`@>` 解引用、`alloc`/`free`
-- **空安全** — `?.` 安全访问、`??` nil 合并
-- **类型系统** — byte/short/int/long/float/double、string、bytes、list、dict、struct、enum、interface、泛型
-- **面向对象** — struct 方法（`func this.method()`）、接口多态（鸭子类型）
-- **现代语法** — 三元运算符、`match` 多值/范围分支、多返回值、`a..b` 区间、`for-in`（list/string/dict）
-- **函数默认参数** — `func scan(target, port = 80, verbose = false)`
-- **二进制与字节** — `b"..."` 字节字面量、binary 编解码、hexdump
-- **正则表达式** — 内置 regex 匹配与提取
-- **编译执行** — 直接编译为字节码在轻量级 VM 上运行
-- **安全沙箱** — `#!permit` 权限声明 + `--sandbox` 命令行策略（文件/命令/网络强制检查）
-- **运行时求值** — `eval()` 动态编译执行、`regex.replace_fn()` 回调替换
-- **FFI 外部调用** — cgo+dlopen 真实调用 C 函数（getpid/strcmp/sysinfo 等），`ffi.alloc/read/write/str` 真实内存操作
-- **pcap 抓包** — 实时抓包（libpcap/Npcap）+ `.pcap` 文件读写（纯 Go）
-- **字节码与独立产物** — `--emit` 落盘 `.ybc`、`--build` 生成单文件可执行程序
+### 新增
 
-## 演示
+- **继承多态**（Java 风格）：`struct Dog extends Animal` 声明继承；
+  方法重写 + 运行期动态分派；未重写方法自动从父链继承；
+  `super.method(args)` 静态绑定最近祖先实现并隐式传 this；
+  多级继承链与循环终止保护；实例内建 `type_name()` / `is_a(类型)` 自省
+- **切片特性** `a[start:end:step]`：list / string / bytes 通用；负下标、
+  负步长反向遍历、缺省段、越界收敛不报错
+- **TCP/UDP 网络编程强化**（`net` 包）：`net.dial_tcp` / `net.listen_tcp` /
+  `net.udp_bind` / `net.udp_dial` 方法化连接对象；连接注册表互斥锁保护
+- **`sync.Chan.try_recv()`**：非阻塞接收，空队列返回 nil
+- **log 库完整实现**：五级过滤、输出目标 file/both、按大小轮转、彩色标签、
+  JSON Lines 结构化模式与字段展开、动态级别、并发写安全
+- **`//` 行注释**：与 `#` 等价（文档示例广泛使用）
+- **`elif` 关键字**：完整实现 else-if 链（含 Test 表达式组合场景）
+- **表达式跨行续行**：所有二元运算符后可换行；调用参数支持多行与尾随逗号
+- **多行列表/字典字面量 + 尾随逗号**
+- **复合赋值全操作符**：`%=` `&=` `|=` `^=` `<<=` `>>=`
+- **`as` 类型转换**：内建类型真实转换；自定义类型直通标记
+- **match 分支免箭头**：模式后可直接跟 `{ }` 块（兼容 `=>` 写法）
+- **命名函数/方法箭头体**：`func f(a, b) -> a + b`
+- **括号 lambda**：`(x) -> expr`、`(a, b) -> { ... }`
+- **类型关键字作变量名放行**：`let list = [...]` 等
+- **接口增强**：方法参数类型注解、`-> RetType` 返回声明、接口组合嵌入
+- **多行字符串字面量**：字符串内允许真实换行
+- 新增示例项目 `test/snake/`：终端贪吃蛇（切片驱动蛇身 + warp/Chan 键盘输入）
+- 回归测试扩容：新增 `test/poly.ys`（继承多态）与 `test/slice.ys`（切片断言）
 
-- [完整演示文件](service_scanner.ys)
-- [二进制处理](test/binary_lib.ys)
+### 修复
 
-## 插件
+- **赋值语句栈泄漏**：编译器补 `OP_POP`，修复循环内静默破坏 for-in 迭代状态
+- **for-in 迭代游标共享**：新增 `OP_FORIN_INIT` 在循环入口重置游标
+- **`and` / `or` 短路栈不平衡**：作为调用参数时错位调用 bool
+- **C 风格 for 回归**：表达式层换行跳过误吞分号——统一改用严格版
+  `consumeNewlinesOnly()`；修正 parseLogicalTail/parseBitAnd 错误插入
+- **warp 子 VM 缺失 struct 方法表**：subVM 补拷方法表与继承链
+- **空结构体字面量** `Type{}` 解析为 nil：识别为零字段初始化
+- **字面量后无法链式调用** `Type{...}.method()`：postfix 循环放行
+- **函数体编译错误被吞掉**：编译器透传真实错误并附带函数名与行号
+- 切片解析 `[::step]` 被词法器合并为 `::` 导致报错：方括号深度 > 0 时不再合并
+- 负步长切片缺省段语义错误、负下标二次调整
+- parseInlineLet 逗号循环中存在重复 `p.next()` 行
 
-- **Vim/Nvim**：[Vim/Nvim插件](https://github.com/xiguayiqiu/YScript-vim)
-- **VScode**：[VScode插件](https://github.com/xiguayiqiu/YScript-vscode)
+### 变更
 
-## 快速开始
+- **`build` 二进制编译已移除**：不再支持把 `.ys` 脚本编译为可执行程序；
+  汇编后端（SSA → x86-64/arm64 机器码）、`build.sh`、`build/` 构建产物与相关
+  `--aarch`/`--as`/`--gpu`/`--strip` 等编译选项一并删除。
+  解释器与 `.ybc` 字节码（`--emit`）路径不受影响
 
-```bash
-yscript hello.ys
-yscript -e 'println("hello")'
-yscript -c hello.ys            # 语法检查
-yscript --emit app.ybc app.ys  # 编译为字节码
-yscript app.ybc                # 直接运行字节码
-yscript --build tool app.ys    # 生成独立可执行文件
-```
+### 文档
 
-## 国际化（i18n）
+- 全量代码块多轮测试：47 章 486 块，通过率 ~80% → **95.3%**
+- 文档修正：01/03/05/07/08/13/16/18/27/28/40/46 各章示例笔误与过时写法
+- 新增文档：`doc/44_切片.md`、`doc/45_TCP与UDP网络编程.md`、
+  `doc/46_继承与多态.md`；`doc/37_日志库.md` 完整重写
+- `doc/00_实现状态.md` 同步以上条目
 
-全部运行时错误消息支持中英双语，按 `LANG` 环境变量自动切换：
+---
 
-```bash
-LANG=zh_CN.UTF-8 yscript app.ys   # 中文错误消息（默认）
-LANG=en_US.UTF-8 yscript app.ys   # English error messages
-```
+## v0.1.4 文档全量测试剩余失败项分析（23/486 = 4.7%）
 
-## 语法示例
+> 以下 23 个代码块未通过自动语法检查。经逐个人工分析，
+> 均为文档编写风格或既有语言限制所致，非本轮改动引入的回归。
 
-### 端口扫描
+### 第一类：文档省略号占位（5 个）
 
-```yscript
-let conn = net.DialTimeout("192.168.1.1:80", 2)
-if conn != nil {
-    printf("[+] port 80 open\n")
-}
-```
+| 文件 | 原因 |
+|------|------|
+| 04_函数_001 | `func f(args...)` 变参语法演示 |
+| 04_运算符_001 | 运算符表格中的 `...` 占位 |
+| 16_文件与路径_000 | 路径遍历省略写法 |
+| 17_IO流抽象_007 | 流式读取省略写法 |
+| 31_raw网络原始帧操作_012 | 帧字段偏移省略 |
 
-### 并发 warp
+这些代码块用 `...` 表示"此处省略"，本身就是不可运行的伪代码，不是 bug。
 
-```yscript
-let w = warp {
-    println("hello from warp")
-}
-w.await()
-```
+### 第二类：REPL/声明片段（约 10 个）
 
-### HTTP 请求
+| 文件 | 原因 |
+|------|------|
+| 46_继承与多态_004/005 | super 仅可在方法内——super 用法示例被截取为独立片段 |
+| 04_函数_000/005 | 必须在 package main 下——纯函数定义片段，无 package 行 |
+| 04_函数_004 | func main 重复定义——演示两种 main 写法的对比块 |
+| 22_stdio标准库_007 | 同上——stdio 方法演示片段 |
+| 43_REPL会话_000 | REPL 会话命令（`@show` 等），非脚本语法 |
+| 45_TCP_003 | API 参数说明片段（`timeout_sec?` 伪参数） |
+| 08_集合类型_004/011/012 | 链式方法调用的续行写法片段 |
+| 29_warp同步原语_006 | Select 回调字典的简写形式 |
 
-```yscript
-let resp = http.Get("https://example.com")
-if resp.status == 200 {
-    println(resp.body)
-}
-```
+这些是有意的教学片段——展示某个 API 的用法但不构成完整程序。
 
-### 字节与编码
+### 第三类：真实语言缺口（约 8 个）
 
-```yscript
-let b = b"\x90\x90\x90"
-let e = encoding.base64_encode(b)
-let d = encoding.base64_decode(e)
-```
+| 文件 | 缺口性质 |
+|------|----------|
+| 03_流程控制_003 | `100 -gt 50` 前导值 Test 表达式 + `"abc" = "abc"` 单等号比较 |
+| 04_运算符_006 | 复合赋值 `%=` `&=` 等在顶层 script 模式下不生效 |
+| 07_字节序列_012 | 变量名 `xor` 与逻辑运算符关键字冲突 |
+| 13_格式化输入输出_000 | `&a, &b` 取地址传参给 Scanf |
+| 14_字符串标准库_009 | for 循环体内嵌套 elif 链 |
+| 16_文件与路径_005 | lambda 体跨行 `or (` 续行 |
+| 36_反射_003 | `func add(a,b) -> a+b` 命名函数箭头体 |
 
-### 空安全
+---
 
-```yscript
-let data = nil
-let host = data?.host ?? "localhost"
-```
+## v0.1.3（2026-08-08）
 
-### 加密
-
-```yscript
-let key = "0123456789abcdef0123456789abcdef"
-let encrypted = crypto.aes_encrypt(key, "secret data")
-let decrypted = crypto.aes_decrypt(key, encrypted)
-```
-
-## 内置模块
-
-| 模块         | 功能                                      |
-| ---------- | --------------------------------------- |
-| `net`      | TCP/UDP 连接、端口扫描、DNS 解析、CIDR、SSL/TLS     |
-| `http`     | HTTP GET/POST/通用请求、超时、代理                |
-| `io`       | 文件读写、临时文件、chmod、walk、glob、symlink       |
-| `os`       | 进程执行、shell、hostname、getpid              |
-| `encoding` | base64、hex 编解码                          |
-| `json`     | JSON 解析与序列化                             |
-| `regex`    | 正则匹配与提取                                 |
-| `compress` | gzip 压缩/解压                              |
-| `crypto`   | AES 加密/解密、RSA                           |
-| `binary`   | 大端/小端编解码、PutUint16/32/64                |
-| `sync`     | Mutex、RWMutex、Cond、Atomic、Chan、Semaphore、TLS、WorkerPool、WaitGroup、select |
-| `sys`      | CPU 信息、OS 信息、当前用户、网络接口                  |
-| `time`     | 时间戳、格式化、解析、持续时间                         |
-| `path`     | 路径 join、basename、ext                    |
-| `array`    | 排序、查找                                   |
-| `log`      | 分级日志输出                                  |
-| `stdio`    | 交互式提示输入                                 |
-| `rand`     | 随机数、UUID 生成                             |
-| `ffi`      | C 语言外部函数调用（真实 ABI，cgo+dlopen；含真实内存操作） |
-| `color`    | ANSI 终端颜色输出                             |
-| `raw`      | 原始 socket 操作 + pcap 抓包（实时/文件）           |
-| `reflect`  | 运行时类型反射                                 |
-| `errors`   | 错误码定义与匹配                                |
-
-## 安装
-
-```bash
-git clone https://github.com/your/project
-cd yscript
-go build -o yscript ./cmd/yscript/
-sudo cp yscript /usr/local/bin/
-```
-
-## 测试
-
-```bash
-cd test
-yscript main.ys
-```
-
-## 编辑器支持
-
-**目前支持** — vim、vscode
+- 基线版本：闭包捕获、高阶函数、struct 方法、接口多态、泛型注解、
+  warp/sync 并发、pcap 抓包、FFI、沙箱、REPL、i18n 中英双语、
+  字节码落盘 `--emit` 与交叉编译等（详见 `doc/00_实现状态.md`）

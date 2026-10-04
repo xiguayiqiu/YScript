@@ -1,3 +1,5 @@
+📖 **[学习文档 →](https://github.com/xiguayiqiu/YScript/wiki)**
+
 <div align="center">
   <img src="icon.png" alt="YScript Logo" width="128" height="128">
 </div>
@@ -11,6 +13,8 @@
 用 Go 实现，单文件 `ysc` 即可运行，无需编译环境。
 把「协议解析 / 抓包分析 / 密码学运算 / 漏洞验证」这类工作从零散的 Shell 命令，
 变成可读、可复用、可版本管理的脚本。
+
+[📖 在线学习文档（51 篇）](https://github.com/xiguayiqiu/YScript/wiki)
 
 </div>
 
@@ -367,7 +371,9 @@ catch {
 
 ## 文档
 
-完整手册共 **48 章 + 更新日志**，存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：37 命名空间 + 6 类型 / 729 个函数）：
+📖 **在线阅读（推荐）**：**[YScript Wiki →](https://github.com/xiguayiqiu/YScript/wiki)** —— 共 **51 篇**中文手册，可直接浏览与搜索。
+
+完整手册同时以 Markdown 形式存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：37 命名空间 + 6 类型 / 729 个函数）：
 
 | 主题 | 章节 |
 |------|------|

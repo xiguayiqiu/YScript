@@ -1,117 +1,249 @@
-# YScript 更新日志
+# YScript
 
-> 完整版本变更记录见 [Log.md](Log.md)（含 v0.1.4 的并发/互斥锁/优雅退出等全部更新）。
+一套用 Go 实现的脚本语言：动态类型、`catch/match/ensure` 异常、`warp` 协程、
+40+ 标准库命名空间，面向网络协议解析、二进制处理与系统自动化场景。
 
-## v0.1.4（2026-08-24）
+```
+$ cat hello.ys
+package main
 
-### 新增
+func main() {
+    println("Hello, YScript!")
+}
 
-- **继承多态**（Java 风格）：`struct Dog extends Animal` 声明继承；
-  方法重写 + 运行期动态分派；未重写方法自动从父链继承；
-  `super.method(args)` 静态绑定最近祖先实现并隐式传 this；
-  多级继承链与循环终止保护；实例内建 `type_name()` / `is_a(类型)` 自省
-- **切片特性** `a[start:end:step]`：list / string / bytes 通用；负下标、
-  负步长反向遍历、缺省段、越界收敛不报错
-- **TCP/UDP 网络编程强化**（`net` 包）：`net.dial_tcp` / `net.listen_tcp` /
-  `net.udp_bind` / `net.udp_dial` 方法化连接对象；连接注册表互斥锁保护
-- **`sync.Chan.try_recv()`**：非阻塞接收，空队列返回 nil
-- **log 库完整实现**：五级过滤、输出目标 file/both、按大小轮转、彩色标签、
-  JSON Lines 结构化模式与字段展开、动态级别、并发写安全
-- **`//` 行注释**：与 `#` 等价（文档示例广泛使用）
-- **`elif` 关键字**：完整实现 else-if 链（含 Test 表达式组合场景）
-- **表达式跨行续行**：所有二元运算符后可换行；调用参数支持多行与尾随逗号
-- **多行列表/字典字面量 + 尾随逗号**
-- **复合赋值全操作符**：`%=` `&=` `|=` `^=` `<<=` `>>=`
-- **`as` 类型转换**：内建类型真实转换；自定义类型直通标记
-- **match 分支免箭头**：模式后可直接跟 `{ }` 块（兼容 `=>` 写法）
-- **命名函数/方法箭头体**：`func f(a, b) -> a + b`
-- **括号 lambda**：`(x) -> expr`、`(a, b) -> { ... }`
-- **类型关键字作变量名放行**：`let list = [...]` 等
-- **接口增强**：方法参数类型注解、`-> RetType` 返回声明、接口组合嵌入
-- **多行字符串字面量**：字符串内允许真实换行
-- 新增示例项目 `test/snake/`：终端贪吃蛇（切片驱动蛇身 + warp/Chan 键盘输入）
-- 回归测试扩容：新增 `test/poly.ys`（继承多态）与 `test/slice.ys`（切片断言）
-
-### 修复
-
-- **赋值语句栈泄漏**：编译器补 `OP_POP`，修复循环内静默破坏 for-in 迭代状态
-- **for-in 迭代游标共享**：新增 `OP_FORIN_INIT` 在循环入口重置游标
-- **`and` / `or` 短路栈不平衡**：作为调用参数时错位调用 bool
-- **C 风格 for 回归**：表达式层换行跳过误吞分号——统一改用严格版
-  `consumeNewlinesOnly()`；修正 parseLogicalTail/parseBitAnd 错误插入
-- **warp 子 VM 缺失 struct 方法表**：subVM 补拷方法表与继承链
-- **空结构体字面量** `Type{}` 解析为 nil：识别为零字段初始化
-- **字面量后无法链式调用** `Type{...}.method()`：postfix 循环放行
-- **函数体编译错误被吞掉**：编译器透传真实错误并附带函数名与行号
-- 切片解析 `[::step]` 被词法器合并为 `::` 导致报错：方括号深度 > 0 时不再合并
-- 负步长切片缺省段语义错误、负下标二次调整
-- parseInlineLet 逗号循环中存在重复 `p.next()` 行
-
-### 变更
-
-- **`build` 二进制编译已移除**：不再支持把 `.ys` 脚本编译为可执行程序；
-  汇编后端（SSA → x86-64/arm64 机器码）、`build.sh`、`build/` 构建产物与相关
-  `--aarch`/`--as`/`--gpu`/`--strip` 等编译选项一并删除。
-  解释器与 `.ybc` 字节码（`--emit`）路径不受影响
-
-### 文档
-
-- 全量代码块多轮测试：47 章 486 块，通过率 ~80% → **95.3%**
-- 文档修正：01/03/05/07/08/13/16/18/27/28/40/46 各章示例笔误与过时写法
-- 新增文档：`doc/44_切片.md`、`doc/45_TCP与UDP网络编程.md`、
-  `doc/46_继承与多态.md`；`doc/37_日志库.md` 完整重写
-- `doc/00_实现状态.md` 同步以上条目
+$ ysc hello.ys
+Hello, YScript!
+```
 
 ---
 
-## v0.1.4 文档全量测试剩余失败项分析（23/486 = 4.7%）
+## 特性速览
 
-> 以下 23 个代码块未通过自动语法检查。经逐个人工分析，
-> 均为文档编写风格或既有语言限制所致，非本轮改动引入的回归。
-
-### 第一类：文档省略号占位（5 个）
-
-| 文件 | 原因 |
+| 能力 | 说明 |
 |------|------|
-| 04_函数_001 | `func f(args...)` 变参语法演示 |
-| 04_运算符_001 | 运算符表格中的 `...` 占位 |
-| 16_文件与路径_000 | 路径遍历省略写法 |
-| 17_IO流抽象_007 | 流式读取省略写法 |
-| 31_raw网络原始帧操作_012 | 帧字段偏移省略 |
+| **异常** | `expr catch h`、`catch { } match { T(e) -> }`、`ensure` 清理块、`raise T("msg")` |
+| **并发** | `warp` 轻量协程 + `sync` 全套同步原语（Mutex/RWMutex/Chan/TLS/WaitGroup/Once/WorkerPool） |
+| **面向对象** | `struct` 方法、接口多态、**继承多态**（`extends` + `super`）、泛型注解 |
+| **二进制** | `binary` 命名空间 99 个函数：字节容器、大小端编解码、流抽象、**等长安全修补** |
+| **网络** | `socket` 统一 TCP/UDP/TLS 对象；`net` / `raw` / `ssl` 底层能力；pcap 抓包 |
+| **系统** | 进程、Shell、文件路径、定时器、日志、CUDA 加速、FFI 动态库调用 |
+| **工程** | 预处理器、REPL 会话、`.ybc` 字节码落盘（`--emit`）、交叉编译、中英双语 i18n |
 
-这些代码块用 `...` 表示"此处省略"，本身就是不可运行的伪代码，不是 bug。
+---
 
-### 第二类：REPL/声明片段（约 10 个）
+## 快速开始
 
-| 文件 | 原因 |
-|------|------|
-| 46_继承与多态_004/005 | super 仅可在方法内——super 用法示例被截取为独立片段 |
-| 04_函数_000/005 | 必须在 package main 下——纯函数定义片段，无 package 行 |
-| 04_函数_004 | func main 重复定义——演示两种 main 写法的对比块 |
-| 22_stdio标准库_007 | 同上——stdio 方法演示片段 |
-| 43_REPL会话_000 | REPL 会话命令（`@show` 等），非脚本语法 |
-| 45_TCP_003 | API 参数说明片段（`timeout_sec?` 伪参数） |
-| 08_集合类型_004/011/012 | 链式方法调用的续行写法片段 |
-| 29_warp同步原语_006 | Select 回调字典的简写形式 |
+### 构建
 
-这些是有意的教学片段——展示某个 API 的用法但不构成完整程序。
+```bash
+cd yscript
+make            # 编译本机 ysc（自动检测 CUDA）
+make all        # 交叉编译全部平台并打包为 tar.xz（产物在 dist/）
+make all -j8    # 并行编译，更快
+make static     # 纯静态、无 cgo（可移植）
+make linux      # 交叉编译 Linux amd64
+make windows    # 交叉编译 Windows amd64
+make darwin     # 交叉编译 macOS arm64
+make help       # 查看全部目标
+```
 
-### 第三类：真实语言缺口（约 8 个）
+`make all` 默认为下列 6 个平台各产出一个 `tar.xz`（并生成 `SHA256SUMS`）：
 
-| 文件 | 缺口性质 |
+| 平台 | 产物 |
+|---|---|
+| `linux/amd64`、`linux/arm64` | `dist/ysc-<版本>-linux-<arch>.tar.xz` |
+| `darwin/amd64`、`darwin/arm64` | `dist/ysc-<版本>-darwin-<arch>.tar.xz` |
+| `windows/amd64`、`windows/arm64` | `dist/ysc-<版本>-windows-<arch>.tar.xz` |
+
+```bash
+make all PLATFORMS="linux/amd64 windows/amd64"   # 只打指定平台
+make dist-linux-amd64                            # 只做单个平台
+make dist                                        # 额外保留解包目录
+make dist-clean                                  # 清理 dist/
+```
+
+> **发布版产物**：`-s -w` 去掉符号表与 DWARF 调试信息，`-trimpath` 去掉
+> 构建机绝对路径（源码目录 / GOPATH），既防信息泄露又保证可复现构建。
+> 二者由 `RELEASE_LDFLAGS` / `TRIMPATH` 强制指定，覆盖 `LDFLAGS` 也不会失效
+> （`LDFLAGS` 仅作为附加标志追加，例如 `-X main.version=...`）。
+>
+> 交叉编译一律关闭 CGO（无法跨平台链接），故 CUDA 自动降级为 CPU stub；
+> 需要 CUDA 请在本机执行 `make`（仅 linux/amd64 生效）。
+
+产物为 `ysc`。运行：
+
+```bash
+ysc script.ys             # 执行脚本
+ysc                       # 无参数 = 进入 REPL 会话
+ysc -e 'println(1+1)'     # 直接执行一段代码
+ysc -c script.ys          # 仅做语法检查，不执行
+ysc --emit a.ybc x.ys     # 导出字节码
+ysc --sandbox policy.json # 按沙箱策略限制权限
+ysc -h                    # 查看全部选项
+```
+
+### 第一个程序
+
+```yscript
+package main
+
+func main() {
+    // 集合与迭代
+    let xs = [1, 2, 3, 4]
+    let evens = []
+    for x in xs {
+        if x % 2 == 0 { evens.append(x) }
+    }
+    println("偶数: " + string(evens))
+
+    // 异常处理：一行兜底
+    let n = parse_int("abc") catch 0
+    println("解析失败取默认值: " + string(n))
+}
+```
+
+---
+
+## 标准库命名空间
+
+| 分组 | 命名空间 |
 |------|----------|
-| 03_流程控制_003 | `100 -gt 50` 前导值 Test 表达式 + `"abc" = "abc"` 单等号比较 |
-| 04_运算符_006 | 复合赋值 `%=` `&=` 等在顶层 script 模式下不生效 |
-| 07_字节序列_012 | 变量名 `xor` 与逻辑运算符关键字冲突 |
-| 13_格式化输入输出_000 | `&a, &b` 取地址传参给 Scanf |
-| 14_字符串标准库_009 | for 循环体内嵌套 elif 链 |
-| 16_文件与路径_005 | lambda 体跨行 `or (` 续行 |
-| 36_反射_003 | `func add(a,b) -> a+b` 命名函数箭头体 |
+| 内建转换 | `hex` `alpha` `alnum` `ascii` `errors` |
+| 文本 | `strings` `encoding` `json` `regex` `color` `array` |
+| 字节流 | `binary` |
+| 文件 / IO | `io` `path` `stdio` `os` |
+| 序列化 | `csv` `xml` `yaml` `toml` `ini` |
+| 网络 | `socket` `net` `raw` `ssl` `http` `url` |
+| 加密 | `crypto` `aes` `rsa` `hash` |
+| 并发 | `thread` `sync` |
+| 系统 | `sys` `time` `rand` `log` |
+| 其它 | `ffi` `cuda` `reflect` `iter` `from` `compress` |
+
+### `binary` — 字节流处理（速览）
+
+```yscript
+// 大小端编解码
+binary.BigEndian()
+let head = binary.PutUint16(80)         // b"\x00\x50"
+let port = binary.Uint16(b"\x00\x50")    // 80
+
+// 流抽象
+let w = binary.NewWriter()
+binary.WriteString(w, "hello ")
+binary.WriteUint32(w, 0x01020304)
+binary.WriterBytes(w)
+binary.CloseWriter(w)
+
+// 二进制修补（等长覆盖，防损坏）
+let off  = binary.Index(data, binary.FromUTF8("Hello Word!"))
+let out  = binary.PatchEqual(data, off, binary.FromUTF8("Hello Word!"),
+                            binary.FromUTF8("Hello PATCH"))
+```
+
+> ⚠️ Go 把字符串常量**无分隔符紧密排列**。用 `Replace` 做变长替换会移动其后
+> 所有数据 → 运行期 **SIGSEGV**，且 `readelf` 检查不出来。`PatchEqual` 在写入前
+> 强制等长 + 偏移合法 + 内容匹配三重校验。
+
+### `socket` — TCP / UDP / TLS（速览）
+
+```yscript
+// TCP 服务端
+let srv = socket.Socket("tcp")
+let port = srv.listen(8080)             # 0 = 由内核分配
+let cli = srv.accept()                  # 返回新的 Socket
+cli.send("hello\n")
+println(binary.UTF8(cli.recv_line()))
+cli.close()
+srv.close()
+
+// UDP 请求/响应
+let us = socket.Socket("udp")
+let up = us.bind("0.0.0.0", 9000)
+let uc = socket.Socket("udp")
+uc.connect_udp("127.0.0.1", up)          # 先固定源端口
+uc.send("ping")
+let r = uc.recvfrom(2048)               # [数据, 来源地址]
+
+// 一行便捷函数
+let resp = binary.UTF8(socket.tcp_request("127.0.0.1", 80, "GET / HTTP/1.1\r\n\r\n"))
+if socket.tcp_probe("192.168.1.1", 22) { println("SSH 开放") }
+```
+
+失败抛出**带类型异常**，可按类型分流：
+
+```yscript
+catch {
+    let s = socket.Socket("tcp")
+    s.connect(host, port)
+} match {
+    ConnectError(e) -> println("连接失败: " + e)
+    TimeoutError(e) -> println("超时: " + e)
+    TLSError(e)     -> println("TLS 失败: " + e)
+    SocketError(e)  -> println("其它: " + e)
+}
+```
 
 ---
 
-## v0.1.3（2026-08-08）
+## 文档
 
-- 基线版本：闭包捕获、高阶函数、struct 方法、接口多态、泛型注解、
-  warp/sync 并发、pcap 抓包、FFI、沙箱、REPL、i18n 中英双语、
-  字节码落盘 `--emit` 与交叉编译等（详见 `doc/00_实现状态.md`）
+完整手册见 [`doc/`](doc/)，共 48 章 + 更新日志：
+
+| 主题 | 章节 |
+|------|------|
+| 语言基础 | [01 类型系统](doc/01_类型系统.md) [02 变量与常量](doc/02_变量与常量.md) [03 流程控制](doc/03_流程控制.md) [04 函数](doc/04_函数.md) |
+| 数据结构 | [09 数组](doc/09_数组.md) [08 集合类型](doc/08_集合类型.md) [07 字节序列](doc/07_字节序列.md) [44 切片](doc/44_切片.md) |
+| 面向对象 | [10 结构体与方法](doc/10_结构体与方法.md) [11 接口](doc/11_接口.md) [46 继承与多态](doc/46_继承与多态.md) |
+| 异常 | [18 错误处理](doc/18_错误处理.md) [48 异常捕获](doc/48_异常捕获.md) |
+| 并发 | [27 并发](doc/27_并发.md) [28 warp协程](doc/28_warp并发线程.md) [29 warp同步原语](doc/29_warp同步原语.md) [47 协程与互斥锁](doc/47_协程与互斥锁.md) |
+| 字节流 | [20 字节流处理](doc/20_字节流处理.md) |
+| 网络 | [30 网络通信](doc/30_网络通信.md) [45 TCP与UDP](doc/45_TCP与UDP网络编程.md) [31 raw原始帧](doc/31_raw网络原始帧操作.md) [32 SSL](doc/32_ssl安全套接层.md) |
+| 系统 | [16 文件与路径](doc/16_文件与路径.md) [25 系统与进程](doc/25_系统与进程库.md) [37 日志库](doc/37_日志库.md) |
+| 速查 | [**49_函数速查表.md**](doc/函数速查表.md)（37 命名空间 + 6 类型 / 729 个函数）· [05 关键字速查](doc/05_关键字速查.md) |
+| 其它 | [00 实现状态](doc/00_实现状态.md) [**Log.md 更新日志**](doc/Log.md) |
+
+编辑器支持：[vim 插件](vim/) · [VSCode 插件](vscode/)
+
+---
+
+## 项目结构
+
+```
+y_script/
+├── yscript/              解释器主仓库（Go）
+│   ├── cmd/yscript/      命令行入口
+│   ├── internal/
+│   │   ├── lexer parser checker compiler   前端
+│   │   ├── bytecode vm                      运行时
+│   │   ├── value                            值表示与类型系统
+│   │   ├── preproc i18n                     预处理器 / 中英双语
+│   │   └── std/                             40+ 标准库命名空间
+│   ├── test/              YScript 测试套件
+│   └── Makefile
+├── doc/                  48 章中文手册 + Log.md
+├── vim/  vscode/          编辑器插件
+├── testexe/              二进制修补实验目标
+└── wifi/                 实战项目（WiFi 相关）
+```
+
+---
+
+## 开发
+
+```bash
+make test    # go test ./cmd/... ./internal/...
+make vet     # go vet
+make fmt     # gofmt
+make clean   # 清理产物
+```
+
+---
+
+## 版本
+
+当前版本 **v0.1.4**（见 `yscript/cmd/yscript/main.go` → `const version`）。
+完整变更记录见 [doc/Log.md](doc/Log.md)。
+
+## 许可
+
+见 [LICENSE](yscript/LICENSE)。

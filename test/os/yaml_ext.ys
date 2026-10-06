@@ -1,0 +1,16 @@
+package yaml_t
+import ["yaml"]
+
+func TestYamlAll() {
+    println("--- yaml ---")
+    
+    let data = yaml.parse("name: test\nport: 8080\ndebug: true\nitems:\n  - a\n  - b\n  - c")
+    if data.name == "test" and data.port == 8080 and data.debug == true and len(data.items) == 3 {
+        println("yaml.parse: ok")
+    }
+    
+    let cfg = yaml.parse("server:\n  host: 127.0.0.1\n  port: 3306\ndatabase:\n  name: mydb\n  pool: 10")
+    if cfg.server.host == "127.0.0.1" and cfg.database.name == "mydb" {
+        println("yaml.nested: ok")
+    }
+}

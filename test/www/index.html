@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单测试页面</title>
+    <style>
+        /* CSS 样式部分 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 350px;
+            text-align: center;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        button#add-btn {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button#add-btn:hover {
+            background-color: #218838;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+
+        li {
+            background: #fff;
+            border-bottom: 1px solid #eee;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        li.completed span {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HTML 结构部分 -->
+    <div class="container">
+        <h2>我的待办清单</h2>
+        <div class="input-group">
+            <input type="text" id="todo-input" placeholder="输入要做的事情...">
+            <button id="add-btn">添加</button>
+        </div>
+        <ul id="todo-list">
+            <!-- 列表项将在这里生成 -->
+        </ul>
+    </div>
+
+    <script>
+        // JavaScript 逻辑部分
+        const input = document.getElementById('todo-input');
+        const addBtn = document.getElementById('add-btn');
+        const todoList = document.getElementById('todo-list');
+
+        // 添加任务函数
+        function addTask() {
+            const taskText = input.value.trim();
+            
+            if (taskText === "") {
+                alert("请输入内容！");
+                return;
+            }
+
+            const li = document.createElement('li');
+            
+            // 创建文本 span
+            const span = document.createElement('span');
+            span.textContent = taskText;
+            // 点击文字标记为完成
+            span.onclick = function() {
+                li.classList.toggle('completed');
+            };
+
+            // 创建删除按钮
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '删除';
+            delBtn.className = 'delete-btn';
+            delBtn.onclick = function() {
+                li.remove();
+            };
+
+            li.appendChild(span);
+            li.appendChild(delBtn);
+            todoList.appendChild(li);
+
+            input.value = ""; // 清空输入框
+        }
+
+        // 绑定点击事件
+        addBtn.addEventListener('click', addTask);
+
+        // 绑定回车键事件
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+    </script>
+</body>
+</html>

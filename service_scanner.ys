@@ -5,6 +5,7 @@ package main
 # Service Port Mapping Table
 # ========================================
 
+import ["net","strings","stdio","time","thread"]
 let SERVICES = {}
 
 init() {
@@ -148,7 +149,7 @@ func scan_single(p, ip, to) {
             # ========================================
 
             let rc2 = net.DialTimeout(ip+":"+string(p), to)
-            if rc2 != nil {
+            if rc2 != null {
                 let cid2 = rc2.id
                 let resp2 = net.ConnRead(cid2, 256)
                 net.ConnClose(cid2)

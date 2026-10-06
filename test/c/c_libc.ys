@@ -1,0 +1,99 @@
+package c_libc_t
+import ["c", "native_dir"]
+
+# ========================================
+# C 标准库直连（cgo 编译期链接，无需 dlopen）
+# C standard library, linked at compile time via cgo
+# ========================================
+
+func TestLibcString() {
+    assert(c.strlen("hello") == 5, "strlen")
+    assert(c.strcmp("abc", "abc") == 0, "strcmp 相等")
+    assert(c.strcmp("abc", "abd") != 0, "strcmp 不等")
+    assert(c.stricmp("ABC", "abc") == 0, "stricmp")
+    assert(c.strstr("hello world", "world") == 6, "strstr")
+    assert(c.strstr("abc", "zz") == -1, "strstr 未找到")
+    assert(c.strcat("foo", "bar") == "foobar", "strcat")
+    assert(c.strdup("dup me") == "dup me", "strdup")
+    println("libc 字符串: ok")
+}
+
+func TestLibcMath() {
+    assert(c.sqrt(16) == 4, "sqrt")
+    assert(c.pow(2, 10) == 1024, "pow")
+    assert(c.floor(3.7) == 3, "floor")
+    assert(c.ceil(3.2) == 4, "ceil")
+    assert(c.fabs(-2.5) == 2.5, "fabs")
+    assert(c.fmod(10, 3) == 1, "fmod")
+    assert(c.log10(1000) == 3, "log10")
+    assert(c.isnan(c.sqrt(-1)), "isnan(sqrt(-1))")
+    println("libc 数学: ok")
+}
+
+# ASCII 码：toupper/tolower 返回的是字符的整数码
+const CH_Q = 113    # 'q'
+const CH_Q_UPPER = 81   # 'Q'
+
+func TestLibcChar() {
+    assert(c.isalpha("a"), "isalpha('a')")
+    assert(not c.isdigit("a"), "isdigit('a') 应为 false")
+    assert(c.isdigit("7"), "isdigit('7')")
+    assert(c.isspace(" "), "isspace(' ')")
+    assert(c.isxdigit("f"), "isxdigit('f')")
+    assert(c.toupper("q") == CH_Q_UPPER, "toupper('q') -> 'Q'")
+    assert(c.tolower("Q") == CH_Q, "tolower('Q') -> 'q'")
+    println("libc 字符: ok")
+}
+
+func TestLibcConvert() {
+    assert(c.atoi("123") == 123, "atoi")
+    assert(c.atof("3.5") == 3.5, "atof")
+    assert(c.abs(-7) == 7, "abs")
+    let r = c.strtol("42abc", 10)
+    assert(r[0] == 42, "strtol 值")
+    assert(r[1] == 2, "strtol 消费长度")
+    assert(r[2] == "abc", "strtol 剩余串")
+    println("libc 转换: ok")
+}
+
+# 指针与内存：malloc -> 写 -> 读 -> free 全链路
+func TestLibcMemory() {
+    let p = c.malloc(64)
+    assert(p != 0, "malloc 返回空指针")
+    c.memset(p, 65, 5)             # 5 个 'A'
+    c.memset(p + 5, 0, 1)          # 补 NUL
+    assert(c.strlen(p) == 5, "memset 后 strlen")
+
+    let q = c.malloc(64)
+    assert(q != p, "两次 malloc 不应返回同一地址")
+    c.memset(q, 0, 64)
+    c.memcpy(q, p, 6)
+    assert(c.strlen(q) == 5, "memcpy 后 strlen")
+    assert(c.memcmp(p, q, 6) == 0, "memcmp 应为 0")
+    c.free(p)
+    c.free(q)
+    println("libc 内存: ok (malloc/memset/memcpy/memcmp/free)")
+}
+
+func TestLibcProcessTime() {
+    assert(c.getpid() > 0, "getpid")
+    assert(c.getcwd() != "", "getcwd")
+    let t = c.time()
+    c.usleep(20000)                 # 20ms
+    assert(c.time() >= t, "time 不应倒退")
+    println("libc 进程/时间: ok")
+}
+
+func TestCLibcAll() {
+    if not have_cgo() {
+        println("c libc: 当前构建未启用 cgo（静态/交叉编译），跳过")
+        return
+    }
+    TestLibcString()
+    TestLibcMath()
+    TestLibcChar()
+    TestLibcConvert()
+    TestLibcMemory()
+    TestLibcProcessTime()
+    println("c libc 全部通过")
+}

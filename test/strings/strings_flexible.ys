@@ -1,0 +1,34 @@
+package main
+
+func check(condition, name) {
+    if not condition {
+        panic("string test failed: " + name)
+    }
+    println("PASS: " + name)
+}
+
+func main() {
+    let text = "你好🙂"
+    check(text.len() == 10, "len remains UTF-8 byte length")
+    check(text.rune_len() == 3, "rune_len counts Unicode code points")
+    check(text.char_at(1) == "好", "char_at indexes Unicode code points")
+    check(text.char_at(-1) == "🙂", "char_at supports negative indexes")
+    check(text.char_at(9) == "", "char_at returns empty string out of range")
+    check(text.slice(1) == "好🙂", "slice omits end to select through end")
+    check(text.slice(-2, -1) == "好", "slice supports negative bounds")
+    check(text.slice(0, 99) == text, "slice clamps bounds")
+    check(text.slice(2, 1) == "", "slice returns empty for reversed bounds")
+
+    check("猫".pad_left(6, "你好") == "你好你好你猫", "pad_left cycles multi-rune padding")
+    check("猫".pad_right(5, "ab") == "猫abab", "pad_right uses exact rune width")
+    check(" 42 ".to_int() == 42, "string to_int trims whitespace")
+    check("1.25e2".to_float() == 125.0, "string to_float supports exponent")
+    let invalid_int = "42tail".to_int() catch -1
+    let invalid_float = "1.5tail".to_float() catch -1.0
+    let invalid_repeat = "x".repeat("bad") catch "caught"
+    check(invalid_int == -1, "string to_int rejects trailing text")
+    check(invalid_float == -1.0, "string to_float rejects trailing text")
+    check(invalid_repeat == "caught", "repeat rejects invalid count")
+
+    println("==== string integration tests passed ====")
+}

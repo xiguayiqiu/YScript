@@ -1,0 +1,103 @@
+package c_num_t
+import ["path", "c", "native_dir"]
+
+# ========================================
+# 数值类型互操作：浮点 / 窄整数 / 多参数
+# Numeric interop: floats, narrow ints, many arguments
+#
+# 这一组用例依赖 libffi 后端。若当前构建走的是 nolibffi 垫片后端
+# （浮点无法传递、参数上限 8 个），会自动跳过并说明原因。
+# ========================================
+
+# 探测当前后端是否支持浮点：ys_f32 传 float 参数
+# 垫片后端会因为「不支持的 FFI 参数类型: float」报错。
+func float_supported() {
+    let work = ensure_work()
+    let so = c.compile(native_src("ys_num.c"), path.join(work, "libnum.so"))
+    let lib = c.load(so)
+    let f = c.bind(lib, "ys_f32", "float", ["float"]) catch null
+    let ok = false
+    if f != null {
+        let r = c.call(f, 1.5) catch null
+        ok = r != null and r == 3.0
+    }
+    c.unload(lib)
+    return ok
+}
+
+func TestFloatArgs() {
+    let work = ensure_work()
+    let so = c.compile(native_src("ys_num.c"), path.join(work, "libnum.so"))
+    let lib = c.load(so)
+
+    # 混合 int64 / double 参数 + double 返回
+    let mix = c.bind(lib, "ys_mix", "double", ["int64", "double", "int64", "double"])
+    assert(c.call(mix, 1, 2.5, 3, 4.5) == 11.0, "ys_mix(1,2.5,3,4.5) 应为 11")
+
+    # 三个 double
+    let dsum = c.bind(lib, "ys_dsum", "double", ["double", "double", "double"])
+    assert(c.call(dsum, 1.0, 2.0, 3.0) == 6.0, "ys_dsum 应为 6")
+
+    # float(32 位) 往返：声明成 float 才是 32 位
+    let f32 = c.bind(lib, "ys_f32", "float", ["float"])
+    assert(c.call(f32, 1.5) == 3.0, "ys_f32(1.5) 应为 3")
+
+    c.unload(lib)
+    println("浮点参数/返回值: ok")
+}
+
+func TestNarrowInts() {
+    let work = ensure_work()
+    let so = c.compile(native_src("ys_num.c"), path.join(work, "libnum.so"))
+    let lib = c.load(so)
+
+    let i16 = c.bind(lib, "ys_i16", "int16", ["int16"])
+    assert(c.call(i16, 21) == 42, "int16 21*2 应为 42")
+
+    # 无符号：必须声明成 uint8，否则 255 会被解读成 -1
+    let u8 = c.bind(lib, "ys_u8", "uint8", ["uint8"])
+    assert(c.call(u8, 254) == 255, "uint8 254+1 应为 255")
+
+    let i32 = c.bind(lib, "ys_i32abs", "int32", ["int32"])
+    assert(c.call(i32, -9) == 9, "int32 绝对值应为 9")
+
+    c.unload(lib)
+    println("窄整数类型 (int16/uint8/int32): ok")
+}
+
+func TestManyArgs() {
+    let work = ensure_work()
+    let so = c.compile(native_src("ys_num.c"), path.join(work, "libnum.so"))
+    let lib = c.load(so)
+
+    # 12 个参数：老垫片后端最多 8 个
+    let m12 = c.bind(lib, "ys_many12", "int64",
+        ["int64", "int64", "int64", "int64", "int64", "int64",
+         "int64", "int64", "int64", "int64", "int64", "int64"])
+    assert(c.call(m12, 1,1,1,1,1,1,1,1,1,1,1,1) == 12, "12 个参数求和应为 12")
+
+    # 12 个参数里混两个浮点
+    let mm = c.bind(lib, "ys_many_mix", "double",
+        ["int64", "double", "int64", "int64", "int64", "int64",
+         "int64", "int64", "int64", "int64", "int64", "double"])
+    assert(c.call(mm, 1, 1.0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11.0) == 67.0, "混合 12 参数应为 67")
+
+    c.unload(lib)
+    println("12 个参数(含浮点混排): ok")
+}
+
+func TestCNumericAll() {
+    if not have_cgo() or not have_cc() {
+        println("c 数值类型: 需要 cgo 与 C 编译器，跳过")
+        return
+    }
+    if not float_supported() {
+        println("c 数值类型: 当前构建走 nolibffi 垫片后端（不支持浮点），跳过")
+        println("            装上 libffi 开发包后重新编译即可启用：sudo apt install libffi-dev")
+        return
+    }
+    TestFloatArgs()
+    TestNarrowInts()
+    TestManyArgs()
+    println("c 数值类型全部通过")
+}

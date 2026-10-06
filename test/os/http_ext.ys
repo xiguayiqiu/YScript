@@ -1,0 +1,236 @@
+package http_ext_t
+import ["http", "json"]
+
+# ========================================
+# HTTP 客户端扩展（net/http 子包）—— 离线用例
+# HTTP client extensions — offline cases
+#
+# 需要真实服务端的用例（上传/下载/会话 Cookie 等）不放在这里，
+# 避免测试依赖外网或本地端口。
+# ========================================
+
+# 构造一个假的响应 dict，复用响应访问类函数
+func fake_resp() -> dict {
+    return {
+        "status": 200,
+        "status_text": "OK",
+        "ok": true,
+        "headers": {"Content-Type": "application/json; charset=utf-8"},
+        "body": "{\"a\": 1}",
+        "raw": "HTTP/1.1 200 OK\r\n\r\n{\"a\": 1}",
+        "cookies": {"sid": "abc123"},
+        "content_type": "application/json; charset=utf-8",
+        "truncated": false,
+        "size": 7,
+        "redirects": 0,
+        "history": [],
+    }
+}
+
+# ========================================
+# 查询串构造
+# Query string
+# ========================================
+
+func TestQuery() {
+    if http.Query({"b": "2", "a": "1"}) == "a=1&b=2" { println("query: ok") }
+    if http.Query({"kw": "a b"}) == "kw=a+b" { println("query escape: ok") }
+}
+
+# ========================================
+# 原始请求构造（不发送）
+# Raw request dump (no network)
+# ========================================
+
+func TestDump() {
+    let raw = http.Dump("POST", "http://example.com/api?x=1", {"a": 1},
+                        {"headers": {"X-Trace": "1"}, "cookies": {"sid": "s1"}})
+    var ok = raw.contains("POST /api?x=1 HTTP/1.1")
+    ok = ok and raw.contains("Host: example.com")
+    ok = ok and raw.contains("X-Trace: 1")
+    ok = ok and raw.contains("Cookie: sid=s1")
+    ok = ok and raw.contains("Content-Type: application/json")
+    ok = ok and raw.contains("{\"a\":1}")
+    if ok { println("dump: ok") }
+
+    let get = http.Dump("GET", "http://example.com/", null, {"remove_headers": ["User-Agent"]})
+    if not get.contains("User-Agent") { println("dump remove header: ok") }
+}
+
+# ========================================
+# 响应访问函数
+# Response accessors
+# ========================================
+
+func TestResponseAccess() {
+    let r = fake_resp()
+    if http.Ok(r) and r.status == 200 { println("ok: ok") }
+    if http.StatusText(404) == "Not Found" { println("status_text: ok") }
+    if http.StatusText(r) == "OK" { println("status_text(resp): ok") }
+    if http.Headers(r, "content-type").contains("application/json") { println("headers: ok") }
+    if http.Headers(r, "X-None") == null { println("headers missing: ok") }
+    if http.Body(r) == "{\"a\": 1}" { println("body: ok") }
+    if http.Raw(r).contains("HTTP/1.1 200 OK") { println("raw: ok") }
+    if http.Json(r).a == 1 { println("json: ok") }
+    if http.Cookie(r, "sid") == "abc123" { println("cookie: ok") }
+    if http.Cookie(r, "none") == null { println("cookie missing: ok") }
+    if http.Cookies(r).sid == "abc123" { println("cookies: ok") }
+}
+
+# ========================================
+# 会话对象（不发请求）
+# Session object (no request)
+# ========================================
+
+func TestSessionShape() {
+    let s = http.Session({"base_url": "http://example.com", "headers": {"X-A": "1"}})
+    if s.kind == "http.session" { println("session kind: ok") }
+    if s.base() == "http://example.com" { println("session base: ok") }
+    s.set_base("https://target.local")
+    if s.base() == "https://target.local" { println("session set_base: ok") }
+    let ck = s.cookies()
+    if ck.len() == 0 { println("session cookies empty: ok") }
+    s.set_cookie("sid", "v1")
+    let ck2 = s.cookies()
+    if ck2.sid == "v1" { println("session set_cookie: ok") }
+    s.set_header("X-A", "2")
+    s.remove_header("X-A")
+    s.set_timeout(3)
+    s.set_raise(true)
+    s.set_jar(false)
+    if s.last_error() == "" { println("session last_error: ok") }
+    s.close()
+    let ck3 = s.cookies()
+    if s.base() == "" and ck3.len() == 0 { println("session close: ok") }
+}
+
+# ========================================
+# 选项校验与失败语义（离线）
+# Option validation & failure semantics
+# ========================================
+
+func TestFailSemantics() {
+    # 选项类型错误要能被 catch 住
+    let e1 = http.Get("http://example.com/", {"timeout": -1}) catch "caught"
+    if e1 == "caught" { println("opts timeout: ok") }
+    let e2 = http.Form("http://example.com/", "not-a-dict") catch "caught"
+    if e2 == "caught" { println("form type: ok") }
+    let e3 = http.Query([1, 2]) catch "caught"
+    if e3 == "caught" { println("query type: ok") }
+
+    # 传输失败默认返回 null，并记录 LastError
+    http.Reset()
+    let bad = http.Get("http://127.0.0.1:1/")
+    if bad == null and http.LastError() != "" { println("fail null: ok") }
+    # raise 选项让它变成可捕获的异常
+    let raised = http.Get("http://127.0.0.1:1/", {"raise": true}) catch "raised"
+    if raised == "raised" { println("raise: ok") }
+    http.Reset()
+}
+
+# ========================================
+# 全局配置读写
+# Global config round-trip
+# ========================================
+
+func TestGlobalConfig() {
+    http.Reset()
+    http.SetRetries(3)
+    http.SetRetryDelay(0.05)
+    http.SetMaxBody(1024)
+    http.SetCookie("k", "v")
+    http.SetHeader("X-Global", "1")
+    http.SetUserAgent("ys-test")
+    http.SetRedirects(5)
+    http.BasicAuth("u", "p")
+    http.SetRaise(true)
+    http.Insecure(false)
+    http.ClearCookies()
+    http.ClearHeaders()
+    http.SetUserAgent("")
+    http.SetRaise(false)
+    http.Insecure(true)
+    http.Reset()
+    if http.LastError() == "" { println("config round-trip: ok") }
+}
+
+# ========================================
+# v0.1.5.1 新增：退避策略、状态码释义、钩子
+# Backoff, status code, hook (new in v0.1.5.1)
+# ========================================
+
+func TestRetryBackoff() {
+    http.SetRetryBackoff("linear")
+    http.SetRetryBackoff("constant")
+    http.SetRetryBackoff("exp")
+    let bad = http.SetRetryBackoff("weird") catch "caught"
+    if bad == "caught" { println("retry backoff guard: ok") }
+    http.Reset()
+}
+
+func TestStatusCodeExplain() {
+    if http.StatusCode(404).contains("Not Found") { println("status 404: ok") }
+    if http.StatusCode(200).contains("OK") { println("status 200: ok") }
+    let r = fake_resp()
+    if http.StatusCode(r).contains("OK") { println("status from resp: ok") }
+    if http.StatusCode(599).contains("HTTP 599") { println("status unknown: ok") }
+}
+
+# ========================================
+# v0.1.5.1 新增：会话上的便捷方法 + 状态读取
+# Session-level convenience & state reads
+# ========================================
+
+func TestSessionConvenience() {
+    let s = http.Session({"base_url": "http://example.com"})
+    # s.form / s.upload / s.download / s.dump 不实际发送，只验证签名与失败语义
+    let bad1 = s.form("/api", "not-dict") catch "caught"
+    if bad1 == "caught" { println("session form guard: ok") }
+    let bad2 = s.upload("/api", "not-dict") catch "caught"
+    if bad2 == "caught" { println("session upload guard: ok") }
+    let bad3 = s.download("/api", "") catch "caught"
+    if bad3 == "caught" { println("session download guard: ok") }
+    # header/cookie/base_url 状态读取
+    s.set_header("X-A", "1")
+    if s.header("X-A") == "1" { println("session header(): ok") }
+    if s.header()["X-A"] == "1" { println("session header() dict: ok") }
+    s.set_cookie("sid", "v1")
+    if s.cookie("sid") == "v1" { println("session cookie(): ok") }
+    if s.cookies()["sid"] == "v1" { println("session cookies() dict: ok") }
+    if s.base_url() == "http://example.com" { println("session base_url(): ok") }
+    if s.cookie("nope") == null { println("session cookie missing: ok") }
+    if s.header("nope") == null { println("session header missing: ok") }
+    s.close()
+}
+
+# ========================================
+# v0.1.5.1 新增：HTTP 服务端
+# HTTP server (new in v0.1.5.1)
+# ========================================
+
+func TestHttpServer() {
+    # 参数错误路径（不真正 bind 端口）
+    let e1 = http.Server() catch "caught"
+    if e1 == "caught" { println("server arity: ok") }
+    let e2 = http.Server(":0", "not-callable") catch "caught"
+    if e2 == "caught" { println("server handler type: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestHttpExtAll() {
+    TestQuery()
+    TestDump()
+    TestResponseAccess()
+    TestSessionShape()
+    TestFailSemantics()
+    TestGlobalConfig()
+    TestRetryBackoff()
+    TestStatusCodeExplain()
+    TestSessionConvenience()
+    TestHttpServer()
+    println("==== http_ext all ok ====")
+}

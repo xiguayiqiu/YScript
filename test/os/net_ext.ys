@@ -1,0 +1,131 @@
+package net_ext_t
+import ["net", "io", "http"]
+
+# ========================================
+# CIDR 子网解析
+# CIDR subnet parsing
+# ========================================
+
+func TestCIDR() {
+    let c = net.CIDR("192.168.1.0/24")
+    if c.network == "192.168.1.0" and c.prefix_len == 24 { println("cidr: ok") }
+}
+
+# ========================================
+# IP 地址验证
+# IP address validation
+# ========================================
+
+func TestIsIP() {
+    if net.IsIP("192.168.1.1") and not net.IsIP("not-an-ip") { println("is_ip: ok") }
+}
+
+# ========================================
+# IP 版本检测
+# IP version detection
+# ========================================
+
+func TestIPVersion() {
+    let v4 = net.IPVersion("192.168.1.1")
+    let v6 = net.IPVersion("::1")
+    if v4 == 4 and v6 == 6 { println("ip version: ok") }
+}
+
+# ========================================
+# 网络接口列表
+# Network interface list
+# ========================================
+
+func TestInterfaces() {
+    let ifaces = net.Interfaces()
+    if len(ifaces) > 0 { println("interfaces: ok") }
+}
+
+# ========================================
+# 静态目录 HTTP 服务
+# Static directory HTTP server
+# ========================================
+
+func TestNginx() {
+    let root = "/tmp/ys-nginx-test"
+    let mkdir_ok = io.mkdir_all(root) catch "caught"
+    if mkdir_ok == "caught" { println("nginx mkdir: ok") }
+    io.write_file(root + "/index.html", "<h1>hello</h1>")
+    io.write_file(root + "/app.css", "body{color:red;}")
+    io.write_file(root + "/app.js", "console.log('ok')")
+    let srv = net.nginx(root, ":0", "index.html")
+    if srv.root == root and srv.port > 0 and srv.addr != "" {
+        println("nginx start: ok")
+    }
+    let resp = http.Get("http://127.0.0.1:" + string(srv.port) + "/")
+    if resp.status == 200 and resp.body.contains("hello") {
+        println("nginx serve: ok")
+    }
+    let css = http.Get("http://127.0.0.1:" + string(srv.port) + "/app.css")
+    if css.status == 200 and css.headers["Content-Type"].contains("text/css") {
+        println("nginx css: ok")
+    }
+    let js = http.Get("http://127.0.0.1:" + string(srv.port) + "/app.js")
+    if js.status == 200 and js.headers["Content-Type"].contains("javascript") {
+        println("nginx js: ok")
+    }
+    srv.stop()
+
+    let dir_root = "/tmp/ys-nginx-dir"
+    io.mkdir_all(dir_root + "/assets")
+    io.write_file(dir_root + "/assets/x.txt", "dir file")
+    io.write_file(dir_root + "/page.html", "html logo test")
+    io.mkdir_all(dir_root + "/www")
+    io.write_file(dir_root + "/www/index.html", "nested index marker")
+    let dir_srv = net.nginx(dir_root, ":0")
+    let dir_resp = http.Get("http://127.0.0.1:" + string(dir_srv.port) + "/")
+    if dir_resp.status == 200 and dir_resp.body.contains("assets") and dir_resp.body.contains("www") and not dir_resp.body.contains("nested index marker") {
+        println("nginx dir listing: ok")
+    }
+    if dir_resp.body.contains("class=\"file-icon language-logo lang-html\">HTML</span>") {
+        println("nginx html logo: ok")
+    }
+    let nested_resp = http.Get("http://127.0.0.1:" + string(dir_srv.port) + "/www/")
+    if nested_resp.status == 200 and nested_resp.body.contains("index.html") and not nested_resp.body.contains("nested index marker") {
+        println("nginx nested directory listing: ok")
+    }
+    let nested_index = http.Get("http://127.0.0.1:" + string(dir_srv.port) + "/www/index.html")
+    if nested_index.status == 200 and nested_index.body.contains("nested index marker") {
+        println("nginx nested index file: ok")
+    }
+    dir_srv.stop()
+
+    io.write_file(dir_root + "/www/home", "custom homepage marker")
+    let custom_srv = net.nginx(dir_root, "0", "www/home")
+    let custom_resp = http.Get("http://127.0.0.1:" + string(custom_srv.port) + "/")
+    if custom_resp.status == 200 and custom_resp.body.contains("custom homepage marker") {
+        println("nginx custom homepage: ok")
+    }
+    custom_srv.stop()
+
+    let custom_fullpath_srv = net.nginx(dir_root, "0", dir_root + "/www/home")
+    let custom_fullpath_resp = http.Get("http://127.0.0.1:" + string(custom_fullpath_srv.port) + "/")
+    if custom_fullpath_resp.status == 200 and custom_fullpath_resp.body.contains("custom homepage marker") {
+        println("nginx custom homepage full path: ok")
+    }
+    custom_fullpath_srv.stop()
+
+    let keep_alive = net.nginx(root, ":0")
+    if keep_alive.wait("200ms") == false {
+        println("nginx wait timeout: ok")
+    }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestNetExtAll() {
+    TestCIDR()
+    TestIsIP()
+    TestIPVersion()
+    TestInterfaces()
+    TestNginx()
+    println("==== net_ext all ok ====")
+}

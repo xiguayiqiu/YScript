@@ -1,0 +1,118 @@
+package c_tool_t
+import ["path", "io", "c", "native_dir"]
+
+# ========================================
+# C / C++ 工具链：预处理 -> 编译 -> 链接 -> 执行
+# C/C++ toolchain: preprocess -> compile -> link -> execute
+#
+# 注意：这里不用 #if/#else 做平台分支。ysc 的预处理器只作用于**入口脚本**，
+# 被 import 的文件不会被预处理，#if/#else 会被当成普通注释导致两个分支都被编译、
+# 后定义的那个覆盖先定义的。因此平台/工具链可用性一律在运行期判断。
+#
+# 这四个阶段在 ysc 里全部可脚本化驱动：
+#   1. 预处理  c.compile_obj / c.compile 的 -D 宏；ysc 自身的 #if
+#   2. 编译    c.compile_obj  (-c，只生成 .o)
+#   3. 链接    c.link         (把若干 .o 合成 .so)
+#   4. 执行    c.load + c.bind + c.call
+# ========================================
+
+func TestPreprocMacro() {
+    let work = ensure_work()
+
+    # --- 阶段 1+2：预处理（-DYS_FACTOR=10）与编译（-c 生成 .o）---
+    let o1 = c.compile_obj(native_src("ys_math.c"),
+                            path.join(work, "m1.o"),
+                            ["-DYS_FACTOR=10", "-O2"])
+    assert(io.is_file(o1), "compile_obj 未产出 .o")
+    println("预处理+编译: ys_math.c -> ", path.basename(o1), " (YS_FACTOR=10)")
+
+    # 不带 -D 时走源码里的默认值 1
+    let o2 = c.compile_obj(native_src("ys_math.c"), path.join(work, "m2.o"))
+    let so2 = c.link([o2], path.join(work, "libm2.so"))   # 阶段 3：链接
+    let lib2 = c.load(so2)                                # 阶段 4：加载后才能 bind
+    let f2 = c.bind(lib2, "ys_factor", "int", [])
+    let factor = c.call(f2)
+    c.unload(lib2)
+    assert(factor == 1, "默认 YS_FACTOR 应为 1，实际 " + factor)
+    println("对照编译: 不带 -D 时 ys_factor() = ", factor)
+}
+
+func TestToolchainStages() {
+    let work = ensure_work()
+
+    # --- 阶段 1+2：编译两个独立的编译单元 ---
+    let oa = c.compile_obj(native_src("ys_math.c"), path.join(work, "m.o"), ["-O2"])
+    let ob = c.compile_obj(native_src("ys_text.c"), path.join(work, "t.o"), ["-O2"])
+    println("阶段 2 编译: 2 个 .o 就绪 (", path.basename(oa), ", ", path.basename(ob), ")")
+
+    # --- 阶段 3：链接成一个 .so ---
+    let so = c.link([oa, ob], path.join(work, "libys.so"))
+    assert(io.is_file(so), "link 未产出 .so")
+    println("阶段 3 链接: -> ", path.basename(so))
+
+    # --- 阶段 4：执行 ---
+    let lib = c.load(so)
+    let add = c.bind(lib, "ys_add", "int", ["int", "int"])
+    let sum = c.call(add, 20, 22)
+    assert(sum == 42, "ys_add(20,22) 应为 42，实际 " + sum)
+    println("阶段 4 执行: ys_add(20,22) = ", sum)
+    c.unload(lib)
+}
+
+# ========================================
+# 多编译单元：符号在链接阶段才被解析
+# Multi translation units: symbols resolved at link time
+# ========================================
+
+func TestMultiUnitLink() {
+    let work = ensure_work()
+    let oa = c.compile_obj(native_src("ys_link_a.c"), path.join(work, "la.o"))
+    let ob = c.compile_obj(native_src("ys_link_b.c"), path.join(work, "lb.o"))
+
+    # 只链 a 会失败（ys_link_b_value 未定义）—— 这正是"链接"阶段在做事
+    let only_a = c.link([oa], path.join(work, "lib_bad.so"))
+    println("只链 a: 仍然产出 ", path.basename(only_a), "（.so 允许未定义符号，运行时才报错）")
+
+    # a + b 一起链，跨单元调用才真正可用
+    let so = c.link([oa, ob], path.join(work, "liblink.so"))
+    let lib = c.load(so)
+    let va = c.call(c.bind(lib, "ys_link_a_value", "int", []))
+    let chain = c.call(c.bind(lib, "ys_link_chain", "int", ["int"]), 14)
+    c.unload(lib)
+    # a_value = b_value + 1 = 4243；chain = b_double(a_value) + x = 8486 + 14
+    assert(va == 4243, "ys_link_a_value 应为 4243，实际 " + va)
+    assert(chain == 8500, "ys_link_chain(14) 应为 8500，实际 " + chain)
+    println("跨单元链接: a_value=", va, " chain(14)=", chain, " (a->b 跨编译单元)")
+}
+
+# ========================================
+# C 侧宏预处理生效验证
+# ========================================
+
+func TestPreprocMacroTakesEffect() {
+    let work = ensure_work()
+    let o = c.compile_obj(native_src("ys_math.c"), path.join(work, "mp.o"), ["-DYS_FACTOR=10"])
+    let so = c.link([o], path.join(work, "libmp.so"))
+    let lib = c.load(so)
+    let factor = c.call(c.bind(lib, "ys_factor", "int", []))
+    let scaled = c.call(c.bind(lib, "ys_scaled", "int", ["int"]), 7)
+    c.unload(lib)
+    assert(factor == 10, "-DYS_FACTOR=10 后 ys_factor 应为 10，实际 " + factor)
+    assert(scaled == 70, "ys_scaled(7) 应为 70，实际 " + scaled)
+    println("宏生效: -DYS_FACTOR=10 -> ys_scaled(7)=", scaled)
+}
+
+func TestCToolchainAll() {
+    if not have_cgo() or not have_cc() {
+        println("c toolchain: 需要 cgo 与 C 编译器，当前环境不满足，跳过")
+        return
+    }
+    TestPreprocMacro()
+    println("  -D 宏与默认值对照: ok")
+    TestToolchainStages()
+    println("  预处理/编译/链接/执行 四阶段: ok")
+    TestMultiUnitLink()
+    println("  多编译单元链接: ok")
+    TestPreprocMacroTakesEffect()
+    println("  C 预处理宏生效: ok")
+}

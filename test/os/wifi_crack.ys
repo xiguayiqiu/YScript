@@ -1,0 +1,147 @@
+
+package main
+import ["crypto", "cuda", "io", "string", "time"]
+
+func main() {
+    println("==========================================")
+    println("  YScript WPA2 握手包破解测试 (GPU加速)")
+    println("==========================================")
+    println("")
+
+    let ssid = "OnePlus 10 Pro"
+    let apmac = "62:0c:eb:c7:73:03"
+    let stamac = "fa:2d:c5:aa:40:00"
+    let anonce = "d8a7185f29ebe50ee41c9c562986be05329f68cc971dbf6e500d1d972ebc480f"
+    let snonce = "7931b8fa48f200eef09607338d2a63ce33b89d731a8caa2dfd1d9841c011b3f2"
+    let mic = "0783fbc6ecda58c1871526017f37daf0"
+    let eapol = "0103007b02010a000000000000000000017931b8fa48f200eef09607338d2a63ce33b89d731a8caa2dfd1d9841c011b3f200000000000000000000000000000000000000000000000000000000000000000783fbc6ecda58c1871526017f37daf0001c301a0100000fac040100000fac040100000fac028c000000000fac06"
+
+    println("SSID:     ", ssid)
+    println("AP MAC:   ", apmac)
+    println("STA MAC:  ", stamac)
+    println("")
+
+    let gpu_available = cuda.available()
+    if gpu_available {
+        let dcount = cuda.device_count()
+        println("GPU 加速:  已启用")
+        println("GPU 型号:  ", cuda.device_name(0))
+        println("GPU 显存:  ", cuda.device_memory(0), " MB")
+    } else {
+        println("GPU 加速:  未启用 (使用 CPU)")
+    }
+    println("")
+
+    let content = io.read_file("wifi/pass.txt")
+    let raw = strings.Split(content, "\n")
+
+    let passwords = []
+    let i = 0
+    while i < len(raw) {
+        if raw[i] != "" {
+            let _ = passwords.append(raw[i])
+        }
+        i = i + 1
+    }
+
+    let total = len(passwords)
+    println("字典: ", total, " 个密码")
+    println("开始破解...")
+    println("")
+
+    let start = time.now()
+    let found = false
+    let correct = ""
+    let batch_size = 100000
+    let offset = 0
+    let tried = 0
+    let last_report = 0
+
+    while offset < total {
+        let end = offset + batch_size
+        if end > total {
+            end = total
+        }
+
+        let batch = []
+        let j = offset
+        while j < end {
+            let _ = batch.append(passwords[j])
+            j = j + 1
+        }
+
+        let pmks = []
+        if gpu_available {
+            pmks = cuda.WPA2_PMK_Batch(batch, ssid)
+        } else {
+            let k = 0
+            while k < len(batch) {
+                let pmk = crypto.WPA2_PMK(batch[k], ssid)
+                let _ = pmks.append(pmk)
+                k = k + 1
+            }
+        }
+
+        let k = 0
+        while k < len(pmks) {
+            let ptk = crypto.WPA2_PTK(pmks[k], anonce, snonce, apmac, stamac)
+            if crypto.WPA2_MIC_Verify(ptk.KCK, eapol, mic) {
+                correct = passwords[offset + k]
+                found = true
+                println("")
+                println("[+] MIC 验证通过! 密码: ", correct)
+                break
+            }
+            k = k + 1
+        }
+
+        if found {
+            break
+        }
+
+        offset = offset + len(batch)
+        tried = tried + len(pmks)
+
+        if tried - last_report >= 500 {
+            let now = time.now()
+            let batch_ms = time.sub(now, start) / 1000000
+            let pct = tried * 100 / total
+            let spd = 0
+            if batch_ms > 0 { spd = tried * 1000 / batch_ms }
+            last_report = tried
+            println("[", pct, "%] 已尝试 ", tried, "/", total, "  速度: ", spd, " pwd/s")
+        }
+    }
+
+    if not found and tried < total {
+        tried = total
+    }
+
+    let now = time.now()
+    let total_ms = time.sub(now, start) / 1000000
+
+    println("")
+    println("总耗时:     ", total_ms, " ms")
+    println("总尝试:     ", tried, " / ", total)
+    if total_ms > 0 {
+        println("平均速度:   ", tried * 1000 / total_ms, " pwd/s")
+    }
+    println("")
+
+    if found {
+        println("==========================================")
+        println("  !! 破解成功 !!")
+        println("==========================================")
+        println("")
+        println("WiFi 密码:   ", correct)
+        println("")
+        let pmk = crypto.WPA2_PMK(correct, ssid)
+        let ptk = crypto.WPA2_PTK(pmk, anonce, snonce, apmac, stamac)
+        println("PMK: ", pmk)
+        println("KCK: ", ptk.KCK)
+        println("KEK: ", ptk.KEK)
+        println("TK : ", ptk.TK)
+    } else {
+        println("破解失败: 密码不在字典中")
+    }
+}

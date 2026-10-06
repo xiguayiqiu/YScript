@@ -1,0 +1,62 @@
+package main
+
+import ["cli", "color"]
+
+func check(condition, name) {
+    if not condition {
+        panic("CLI test failed: " + name)
+    }
+    println("PASS: " + name)
+}
+
+func main() {
+    let app = cli.New("cli-test", "YScript CLI stdlib integration test")
+    app.flag("verbose", "v", false, "enable verbose output")
+    app.flag("dry_run", "n", false, "do not write files")
+    app.option("config", "c", "default.ini", "configuration file")
+    app.option("limit", "l", "0", "signed numeric limit")
+    app.arg("input", true, "", "input file")
+
+    let opts = app.parse([
+        "--verbose",
+        "-v",
+        "-vn",
+        "-cconfig.ini",
+        "--config=config.ini",
+        "--config",
+        "config.ini",
+        "--limit",
+        "-5",
+        "input.txt",
+    ])
+
+    check(opts.verbose, "--verbose and -v set verbose")
+    check(opts.dry_run, "-vn parses combined short flags")
+    check(opts.config == "config.ini", "attached, equals, and separated option values")
+    check(opts.limit == "-5", "negative numeric option value")
+    check(opts.input == "input.txt", "required positional argument")
+
+    app.color(true)
+    app.description_color(color.Yellow())
+    let colored_usage = app.usage()
+    check(colored_usage.contains("1;32m-v, --verbose"), "short-first colored flag")
+    check(colored_usage.contains("1;32m-n, --dry_run"), "short-first colored dry-run flag")
+    check(colored_usage.contains("1;32m-c, --config <value>"), "short-first colored option")
+    check(colored_usage.contains("38;2;255;255;0mconfiguration file"), "preset color for option descriptions")
+
+    app.color(false)
+    app.description_color(false)
+    let plain_usage = app.usage()
+    check(not plain_usage.contains("\u001b["), "colors can be disabled")
+
+    app.color(color.Red())
+    let preset_usage = app.usage()
+    check(preset_usage.contains("38;2;255;0;0m-v, --verbose"), "preset color.Red() configures CLI help")
+
+    app.color(color.RGB(12, 34, 56))
+    let rgb_usage = app.usage()
+    check(rgb_usage.contains("38;2;12;34;56m-v, --verbose"), "custom color.RGB() configures CLI help")
+
+    app.print_help()
+    println("==== cli stdlib integration test passed ====")
+}

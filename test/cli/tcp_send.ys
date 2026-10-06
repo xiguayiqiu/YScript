@@ -1,0 +1,74 @@
+package main
+
+import ["cli", "color", "net", "strings"]
+
+func main() {
+    let app = cli.New("tcp-send", "Send a text payload to a TCP endpoint")
+    app.option("address", "a", "127.0.0.1:9000", "TCP destination host:port")
+    app.option("data", "d", "", "payload text; quote spaces")
+    app.option("timeout", "t", "5", "read/write timeout in seconds")
+    app.flag("newline", "n", false, "append a newline to the payload")
+    app.flag("read_line", "r", false, "read one newline-terminated reply")
+    app.flag("dry_run", "D", false, "show the request without connecting")
+    app.flag("help", "h", false, "show this help")
+    app.color(color.Cyan())
+    app.description_color(color.Yellow())
+
+    let argv = args
+    if len(argv) > 0 and strings.HasSuffix(argv[0], "tcp_send.ys") {
+        argv = argv[1:]
+    }
+    let opts = app.parse(argv)
+
+    if opts.help {
+        println(app.usage())
+        println("Examples:")
+        println("  ysc test/cli/tcp_send.ys --help")
+        println("  ysc test/cli/tcp_send.ys --address 127.0.0.1:9000 --data \"hello\"")
+        println("  ysc test/cli/tcp_send.ys -a127.0.0.1:9000 -d\"hello world\" -n")
+        println("  ysc test/cli/tcp_send.ys --data=PING --read_line --timeout 2")
+        return
+    }
+    if opts.data == "" {
+        println("No payload provided. Use --data TEXT or --help.")
+        return
+    }
+
+    let payload = opts.data
+    if opts.newline {
+        payload = payload + "\n"
+    }
+
+    if opts.dry_run {
+        println("Dry run: no TCP connection opened")
+        println("Destination: " + opts.address)
+        println("Payload: " + payload)
+        println("Bytes: " + string(len(payload)))
+        return
+    }
+
+    let conn = net.dial("tcp", opts.address) catch nil
+    if conn == nil {
+        println("Unable to connect to " + opts.address)
+        return
+    }
+
+    conn.set_timeout(float(opts.timeout))
+    let sent = conn.write(payload) catch -1
+    if sent < 0 {
+        conn.close()
+        println("TCP write failed")
+        return
+    }
+    println("Sent " + string(sent) + " bytes to " + conn.remote_addr)
+
+    if opts.read_line {
+        let reply = conn.read_line() catch ""
+        if reply != "" {
+            println("Reply: " + reply)
+        } else {
+            println("No line reply received before timeout or close")
+        }
+    }
+    conn.close()
+}

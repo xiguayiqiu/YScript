@@ -1,8 +1,0 @@
-package main
-
-func main() {
-    let ok = cuda.available()
-    println("cuda.available =", ok)
-    let n = cuda.device_count()
-    println("cuda.device_count =", n)
-}

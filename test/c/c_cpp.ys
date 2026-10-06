@@ -1,0 +1,71 @@
+package c_cpp_t
+import ["path", "c", "native_dir"]
+
+# 平台判断放在运行期（原因同 c_toolchain.ys：import 的文件不走预处理器）。
+#
+# ========================================
+# C++ 调用：类 / 模板 / STL
+# C++ interop: class / template / STL, exported through extern "C"
+# ========================================
+
+func TestCppClassTemplate() {
+    let so = c.compile(native_src("ys_cpp.cpp"), path.join(ensure_work(), "libcpp.so"))
+
+    # 类：Accumulator 走一遍 add/total
+    let lib = c.load(so)
+    let acc = c.bind(lib, "cpp_accumulate", "int", ["int", "int", "int"])
+    let got = c.call(acc, 100, 5, 7)
+    c.unload(lib)
+    assert(got == 112, "cpp_accumulate(100,5,7) 应为 112，实际 " + got)
+    println("C++ 类: ok")
+
+    # 模板：整型版本。
+    # 浮点重载 cpp_square_f64 存在但这里不调——当前 FFI 调用层只支持
+    # int/string/bytes 三种参数类型，float 传参会被拒（见 51_C标准库 的已知限制）。
+    let lib2 = c.load(so)
+    let sqi = c.call(c.bind(lib2, "cpp_square_i64", "int", ["int"]), 9)
+    c.unload(lib2)
+    assert(sqi == 81, "cpp_square_i64(9) 应为 81，实际 " + sqi)
+    println("C++ 模板: ok")
+}
+
+func TestCppSTL() {
+    let so = c.compile(native_src("ys_cpp.cpp"), path.join(ensure_work(), "libcpp.so"))
+    let n = 5
+    let buf = c.malloc(n * 8)
+
+    # C++ 侧填 10,20,30,40,50
+    c.call(c.bind(c.load(so), "cpp_fill_i64", "void", ["ptr", "int"]), buf, n)
+    let total = c.call(c.bind(c.load(so), "cpp_vector_sum", "int", ["ptr", "int"]), buf, n)
+    assert(total == 150, "cpp_vector_sum 应为 150，实际 " + total)
+    println("C++ std::vector: ok")
+
+    # std::sort 求中位数（用 int64 版本：缓冲 10,20,30,40,50 -> 中位数 30 -> x2=60）
+    let med = c.call(c.bind(c.load(so), "cpp_median_x2", "int", ["ptr", "int"]), buf, n)
+    assert(med == 60, "cpp_median_x2 应为 60，实际 " + med)
+    println("C++ std::sort 中位数: ok")
+    c.free(buf)
+}
+
+func TestCppString() {
+    let so = c.compile(native_src("ys_cpp.cpp"), path.join(ensure_work(), "libcpp.so"))
+    let lib = c.load(so)
+
+    # 返回 malloc 的字符串：读出来要 c.free
+    let p = c.call(c.bind(lib, "cpp_join", "char*", ["string", "string"]), "ab", "cd")
+    assert(p == "ab-cd", "cpp_join 应为 ab-cd，实际 " + p)
+    c.free(p)
+    c.unload(lib)
+    println("C++ std::string 跨边界: ok")
+}
+
+func TestCCppAll() {
+    if not have_cgo() or not have_cpp() {
+        println("c++: 需要 cgo 与 C++ 编译器，当前环境不满足，跳过")
+        return
+    }
+    TestCppClassTemplate()
+    TestCppSTL()
+    TestCppString()
+    println("c++ 全部通过")
+}

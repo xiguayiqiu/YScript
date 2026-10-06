@@ -1,0 +1,14 @@
+package main
+import ["net"]
+
+func main() {
+    let srv = net.Listen("127.0.0.1:0")
+    println("srv:", srv.id, srv.addr)
+    let html = "X"
+    let worker = warp {
+        println("warp srv id:", srv.id)
+        net.ConnClose(srv.id)
+    }
+    worker.await()
+    println("done")
+}

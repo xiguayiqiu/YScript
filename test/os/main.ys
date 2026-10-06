@@ -1,0 +1,91 @@
+package main
+import [
+    "struct",
+    "enum",
+    "interface",
+    "memory",
+    "./sync",
+    "time_lib",
+    "./sys",
+    "io_ext",
+    "shell_ext",
+    "net_ext",
+    "http_ext",
+    "error_codes",
+    "safe",
+    "generics",
+    "comprehensive",
+    "features",
+    "slice",
+    "poly",
+    "binary_lib",
+    "c/c_libc",
+    "c/c_toolchain",
+    "c/c_cpp",
+    "c/c_numeric",
+]
+
+# ========================================
+# YScript 全面功能测试入口
+# YScript Comprehensive Test Runner
+# ========================================
+
+# ========================================
+# 主入口：依次调用各模块测试函数
+# Main entry: invoke all module tests
+# ========================================
+
+func main() {
+    println("========================================")
+    println("  YScript 全面功能测试套件")
+    println("========================================")
+    println("")
+    
+    TestStructAll()
+    println("")
+    TestEnumAll()
+    println("")
+    TestInterfaceAll()
+    println("")
+    TestMemoryAll()
+    println("")
+    TestSyncAll()
+    println("")
+    TestTimeAll()
+    println("")
+    TestSysAll()
+    println("")
+    TestIoExtAll()
+    println("")
+    TestShellExtAll()
+    println("")
+    TestNetExtAll()
+    println("")
+    TestHttpExtAll()
+    println("")
+    TestErrorCodesAll()
+    println("")
+    TestSafeAll()
+    println("")
+    TestGenericsAll()
+    println("")
+    TestComprehensiveAll()
+    TestFeaturesAll()
+    println("")
+    TestSliceAll()
+    println("")
+    TestPolyAll()
+    println("")
+    TestCLibcAll()
+    println("")
+    TestCToolchainAll()
+    println("")
+    TestCCppAll()
+    println("")
+    TestCNumericAll()
+    
+    println("")
+    println("========================================")
+    println("  全部测试通过")
+    println("========================================")
+}

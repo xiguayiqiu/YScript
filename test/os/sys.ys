@@ -1,0 +1,55 @@
+package sys_lib_t
+import ["sys"]
+
+# ========================================
+# CPU 信息
+# CPU information
+# ========================================
+
+func TestCPUInfo() {
+    let cpu = sys.cpu_info()
+    if cpu.cores > 0 { println("cpu info: ok") }
+}
+
+# ========================================
+# 操作系统信息
+# Operating system info
+# ========================================
+
+func TestOSInfo() {
+    let osi = sys.os_info()
+    if osi.name != "" { println("os info: ok") }
+}
+
+# ========================================
+# 当前用户
+# Current user
+# ========================================
+
+func TestCurrentUser() {
+    let u = sys.current_user()
+    if u.name != "" { println("current user: ok") }
+}
+
+# ========================================
+# 网络接口
+# Network interfaces
+# ========================================
+
+func TestNetInterfaces() {
+    let ifaces = sys.net_interfaces()
+    if len(ifaces) > 0 { println("net interfaces: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestSysAll() {
+    TestCPUInfo()
+    TestOSInfo()
+    TestCurrentUser()
+    TestNetInterfaces()
+    println("==== sys all ok ====")
+}

@@ -1,6 +1,0 @@
-package main
-import "features"
-func main() {
-    TestTernary()
-    println("done")
-}

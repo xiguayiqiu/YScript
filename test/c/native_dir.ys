@@ -1,0 +1,57 @@
+package c_tool_t
+import ["path", "io", "c"]
+
+# ========================================
+# 定位 native 目录（兼容两种运行方式）
+# Locate the native/ dir regardless of how this file is reached
+# ========================================
+
+# 直接跑本文件 -> __FILE__ 就是本文件，dirname 即 test/c
+# 被 test/main.ys 导入 -> __FILE__ 是 main.ys，dirname 即 test
+# 两种情况下都试探一次即可命中。
+func native_dir() {
+    let here = path.dirname(__FILE__)
+    let direct = path.join(here, "native")
+    if io.is_dir(direct) {
+        return direct
+    }
+    return path.join(here, "c", "native")
+}
+
+func native_src(name) {
+    return path.join(native_dir(), name)
+}
+
+# ========================================
+# 环境探测：没有编译器 / 没有 cgo 就整体跳过
+# Probe toolchain; skip everything when unavailable
+# ========================================
+
+# cgo 是否可用。静态/交叉编译产物（CGO_ENABLED=0）里 libc 函数会**直接报错**
+# 而不是返回 null，所以必须用 catch 探测，不能写成 c.strlen("x") == 1。
+func have_cgo() {
+    let probe = c.strlen("x") catch null
+    return probe != null
+}
+
+func have_cc() {
+    return c.compiler("c") != null
+}
+
+func have_cpp() {
+    return c.compiler("cpp") != null
+}
+
+# 临时工作目录：编译产物落在这里，不污染源码树
+func work_dir() {
+    let d = io.temp_dir()
+    return path.join(d, "ysc_ctest")
+}
+
+func ensure_work() {
+    let d = work_dir()
+    if not io.is_dir(d) {
+        io.mkdir_all(d)
+    }
+    return d
+}

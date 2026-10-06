@@ -1,0 +1,10 @@
+package main
+
+import ["net"]
+
+func main(){
+let srv = net.nginx("~/project/y_script/yscript/test/", ":8080",{"access_log": true})
+println("root:", srv.root)
+println("addr:", srv.addr)
+println("port:", srv.port)
+}

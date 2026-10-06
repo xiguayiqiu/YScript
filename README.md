@@ -21,7 +21,7 @@
 把「协议解析 / 抓包分析 / 密码学运算 / 漏洞验证」这类工作从零散的 Shell 命令，
 变成可读、可复用、可版本管理的脚本。
 
-### 📖 [在线学习文档（51 篇）](https://github.com/xiguayiqiu/YScript/wiki)
+### [在线学习文档（51 篇）](https://github.com/xiguayiqiu/YScript/wiki)
 
 </div>
 
@@ -75,7 +75,7 @@ s.set_timeout(3000)
 let banner = s.recv_line()                      // SSH banner
 println(binary.UTF8(banner))
 
-// 3. 密码学 —— 35 个 crypto 函数，含 WPA2 全套
+// 3. 密码学 —— SHA-2 / SHA-3 / BLAKE2 / HMAC、AEAD、签名、KDF 与 WPA2
 let pmk = crypto.WPA2_PMK(passphrase, ssid)
 crypto.WPA2_MIC_Verify(pmk, eapol, mic)
 
@@ -125,12 +125,12 @@ func this.describe() -> string { return super.describe() + "，是只" + this.br
 
 | 场景 | 文件 |
 |------|------|
-| **WPA2 握手包破解**（PMK/PTK 派生 + MIC 校验，支持 GPU 加速） | [`test/wifi_crack.ys`](test/wifi_crack.ys) |
-| WPA2 破解流程（英文版 / 结果校验） | [`test/wifi_verify.ys`](test/wifi_verify.ys) |
-| WPA2 字典破解性能测试 | [`test/wifi_speed.ys`](test/wifi_speed.ys) |
+| **WPA2 握手包破解**（PMK/PTK 派生 + MIC 校验，支持 GPU 加速） | [`wifi_crack.ys`](test/os/wifi_crack.ys) |
+| WPA2 破解流程（英文版 / 结果校验） | [`wifi_verify.ys`](test/os/wifi_verify.ys) |
+| WPA2 字典破解性能测试 | [`wifi_speed.ys`](test/os/wifi_speed.ys) |
 | **服务端口扫描与指纹识别** | [`service_scanner.ys`](service_scanner.ys) |
-| 网络协议与 socket 实战 | [`test/net_ext.ys`](test/net_ext.ys) |
-| 二进制格式解析与修补 | [`test/binary_lib.ys`](test/binary_lib.ys) |
+| 网络协议与 socket 实战 | [`net_ext.ys`](test/os/net_ext.ys) |
+| 二进制格式解析与修补 | [`binary_lib.ys`](test/os/binary_lib.ys) |
 
 ### 安全边界：沙箱与许可
 
@@ -159,6 +159,33 @@ func this.describe() -> string { return super.describe() + "，是只" + this.br
 | **GPU 加速** | `cuda` 命名空间支持密码学运算批处理，无 GPU 时自动降级 CPU |
 | **FFI** | `ffi` 真实 ABI 调用动态库（0-8 参数，int/string/void 返回） |
 | **工程** | 预处理器、REPL 会话、`.ybc` 字节码落盘、交叉编译、中英双语 i18n |
+
+### v0.1.5.1 更新
+
+- **HTTP**：新增 `http.Server`、状态码释义、可配置重试退避、响应后钩子，以及会话的表单、上传、下载和报文辅助方法。
+- **本地站点**：`net.nginx()` 可托管静态目录，默认查找 `index.html`，也可通过 `php-cgi` 执行 PHP 页面。
+- **CLI**：新增 `cli` 参数框架，支持长短选项、组合短开关、位置参数和彩色帮助。
+- **密码学**：补充 SHA-224/384、SHA-512/224/256、SHA3-224、BLAKE2s/BLAKE2b 与 SHA3 HMAC，并扩展 `crypto.HashFile()` 算法名支持。
+
+```yscript
+import ["cli", "color"]
+
+let app = cli.New("scan", "端口扫描工具")
+app.flag("verbose", "v", false, "显示详细信息")
+app.option("target", "t", "127.0.0.1", "目标地址")
+app.color(color.Cyan())
+let opts = app.parse(args)
+```
+
+静态站点示例：
+
+```yscript
+import ["net"]
+let site = net.nginx("./public", ":8080")
+println("listening on " + site.addr)
+```
+
+PHP 页面需在运行环境安装 `php-cgi`，或在 `net.nginx` options 中指定 `php_cgi` 路径；未配置 CGI 时 PHP 请求返回 501，不会以静态文件方式暴露源码。
 
 ---
 
@@ -227,29 +254,32 @@ init() {
 
 ---
 
-## 测试套件（33 个 `.ys` 示例）
+## 测试套件（45 个 `.ys` 示例）
 
 `test/` 下的脚本既是**回归测试**，也是**按特性组织的语法示例**，可直接阅读学习。
 
 | 特性 | 文件 |
 |------|------|
-| 入口 / 总览 | [`main.ys`](test/main.ys) · [`comprehensive.ys`](test/comprehensive.ys) · [`features.ys`](test/features.ys) |
-| 继承多态 | [`poly.ys`](test/poly.ys) |
-| 异常捕获 | [`exception_catch.ys`](test/exception_catch.ys) · [`error_codes.ys`](test/error_codes.ys) · [`safe.ys`](test/safe.ys) |
-| 切片 | [`slice.ys`](test/slice.ys) |
-| 二进制 | [`binary_lib.ys`](test/binary_lib.ys) · [`memory.ys`](test/memory.ys) |
-| 网络 | [`net_ext.ys`](test/net_ext.ys) |
-| 并发 | [`sync.ys`](test/sync.ys) |
-| 面向对象 | [`struct.ys`](test/struct.ys) · [`interface.ys`](test/interface.ys) · [`enum.ys`](test/enum.ys) · [`generics.ys`](test/generics.ys) |
-| 集合 / 迭代 | [`rf2.ys`](test/rf2.ys) |
-| 文件与系统 | [`sys.ys`](test/sys.ys) · [`shell_ext.ys`](test/shell_ext.ys) · [`io_ext.ys`](test/io_ext.ys) |
-| 文本 / 时间 | [`time_lib.ys`](test/time_lib.ys) |
-| 配置解析 | [`toml_ext.ys`](test/toml_ext.ys) · [`ini_ext.ys`](test/ini_ext.ys) · [`yaml_ext.ys`](test/yaml_ext.ys) |
-| WiFi 实战 | [`wifi_crack.ys`](test/wifi_crack.ys) · [`wifi_verify.ys`](test/wifi_verify.ys) · [`wifi_speed.ys`](test/wifi_speed.ys) |
+| 入口 / 总览 | [`main.ys`](test/os/main.ys) · [`comprehensive.ys`](test/os/comprehensive.ys) · [`features.ys`](test/os/features.ys) |
+| 继承多态 | [`poly.ys`](test/os/poly.ys) |
+| 异常捕获 | [`exception_catch.ys`](test/os/exception_catch.ys) · [`error_codes.ys`](test/os/error_codes.ys) · [`safe.ys`](test/os/safe.ys) |
+| 切片 | [`slice.ys`](test/os/slice.ys) |
+| 二进制 | [`binary_lib.ys`](test/os/binary_lib.ys) · [`memory.ys`](test/os/memory.ys) |
+| 网络 | [`net_ext.ys`](test/os/net_ext.ys) · [`http_ext.ys`](test/os/http_ext.ys) |
+| 并发 | [`sync.ys`](test/os/sync.ys) |
+| 面向对象 | [`struct.ys`](test/os/struct.ys) · [`interface.ys`](test/os/interface.ys) · [`enum.ys`](test/os/enum.ys) · [`generics.ys`](test/os/generics.ys) |
+| 集合 / 迭代 | [`rf2.ys`](test/os/rf2.ys) |
+| 文件与系统 | [`sys.ys`](test/os/sys.ys) · [`shell_ext.ys`](test/os/shell_ext.ys) · [`io_ext.ys`](test/os/io_ext.ys) |
+| 文本 / 时间 | [`time_lib.ys`](test/os/time_lib.ys) |
+| 配置解析 | [`toml_ext.ys`](test/os/toml_ext.ys) · [`ini_ext.ys`](test/os/ini_ext.ys) · [`yaml_ext.ys`](test/os/yaml_ext.ys) |
+| CLI / HTTP | [`cli.ys`](test/cli/cli.ys) · [`tcp_send.ys`](test/cli/tcp_send.ys) |
+| 密码学 | [`crypto_hash.ys`](test/crypto/crypto_hash.ys) |
+| 文本处理 | [`strings_flexible.ys`](test/strings/strings_flexible.ys) |
+| WiFi 实战 | [`wifi_crack.ys`](test/os/wifi_crack.ys) · [`wifi_verify.ys`](test/os/wifi_verify.ys) · [`wifi_speed.ys`](test/os/wifi_speed.ys) |
 
 ### 代码示例
 
-**继承多态**（[`test/poly.ys`](test/poly.ys)）—— Java 风格的 `extends` / 方法重写 / `super` 复用：
+**继承多态**（[`test/os/poly.ys`](test/os/poly.ys)）—— Java 风格的 `extends` / 方法重写 / `super` 复用：
 
 ```yscript
 struct Animal {
@@ -267,7 +297,7 @@ func this.describe() -> string {
 }
 ```
 
-**带类型异常分流**（[`test/exception_catch.ys`](test/exception_catch.ys)）—— `match` 按异常类型分支，`ensure` 保证清理：
+**带类型异常分流**（[`test/os/exception_catch.ys`](test/os/exception_catch.ys)）—— `match` 按异常类型分支，`ensure` 保证清理：
 
 ```yscript
 func scan_host(host: string) {
@@ -307,6 +337,7 @@ let s = connect(host, port) catch return  // 失败即返回
 | 文件 / IO | `io` `path` `stdio` `os` |
 | 序列化 | `csv` `xml` `yaml` `toml` `ini` |
 | 网络 | `socket` `net` `raw` `ssl` `http` `url` |
+| 命令行 | `cli` |
 | 加密 | `crypto` `aes` `rsa` `hash` |
 | 并发 | `thread` `sync` |
 | 系统 | `sys` `time` `rand` `log` |
@@ -412,7 +443,7 @@ catch {
 
 ## 版本
 
-当前版本 **v0.1.4**。完整变更记录见开发仓库的 `doc/Log.md`。
+当前版本 **v0.1.5.1**。完整变更记录见开发仓库的 `doc/Log.md`。
 
 ## 许可
 

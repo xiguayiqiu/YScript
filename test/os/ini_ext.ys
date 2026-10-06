@@ -1,0 +1,11 @@
+package ini_t
+import ["ini"]
+
+func TestIniAll() {
+    println("--- ini ---")
+    
+    let data = ini.parse("[server]\nhost = 10.0.0.1\nport = 8080\n\n[db]\nname = mydb\npool = 10")
+    if data.server.host == "10.0.0.1" and data.db.name == "mydb" {
+        println("ini.parse: ok")
+    }
+}

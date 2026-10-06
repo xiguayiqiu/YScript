@@ -1,0 +1,293 @@
+package slice_t
+import ["array", "json", "regex"]
+
+# ========================================
+# 切片特性测试 [start:end:step]
+# Slice feature tests
+# ========================================
+
+func check_slice(got, want, tag) {
+    if string(got) != want {
+        println("slice FAIL [" + tag + "]: got=" + string(got) + " want=" + want)
+        exit(1)
+    }
+}
+
+# ========================================
+# list 切片：正向、负下标、步长、反向
+# ========================================
+
+func TestSliceList() {
+    let a = [1, 2, 3, 4, 5]
+
+    check_slice(a[1:4], "[2, 3, 4]", "list basic")
+    check_slice(a[:2], "[1, 2]", "list omit end")
+    check_slice(a[3:], "[4, 5]", "list omit start")
+    check_slice(a[:], "[1, 2, 3, 4, 5]", "list omit both")
+    check_slice(a[1:1], "[]", "list empty range")
+
+    check_slice(a[-2:], "[4, 5]", "list neg start")
+    check_slice(a[:-2], "[1, 2, 3]", "list neg end")
+    check_slice(a[-4:-1], "[2, 3, 4]", "list neg both")
+
+    check_slice(a[::2], "[1, 3, 5]", "list step 2")
+    check_slice(a[1::2], "[2, 4]", "list step omit bounds")
+    check_slice(a[:4:3], "[1, 4]", "list step omit start")
+
+    check_slice(a[::-1], "[5, 4, 3, 2, 1]", "list reverse")
+    check_slice(a[::-2], "[5, 3, 1]", "list reverse step 2")
+    check_slice(a[3::-1], "[4, 3, 2, 1]", "list reverse with start")
+    check_slice(a[:2:-1], "[5, 4]", "list reverse with end")
+    check_slice(a[-1:-4:-1], "[5, 4, 3]", "list reverse neg bounds")
+    check_slice(a[4:1:-2], "[5, 3]", "list reverse step odd")
+
+    check_slice(a[9:99], "[]", "list out of range")
+    check_slice(a[-99:2], "[1, 2]", "list clamp low")
+    check_slice(a[2:99], "[3, 4, 5]", "list clamp high")
+
+    # 越界单元素下标仍报错（切片不报错，下标报错，与主流语义一致）
+}
+
+# ========================================
+# string 切片（rune 语义，支持中文）
+# ========================================
+
+func TestSliceString() {
+    let s = "hello"
+
+    check_slice(s[1:4], "ell", "str basic")
+    check_slice(s[:2], "he", "str omit end")
+    check_slice(s[2:], "llo", "str omit start")
+    check_slice(s[-3:], "llo", "str neg start")
+    check_slice(s[::2], "hlo", "str step")
+    check_slice(s[::-1], "olleh", "str reverse")
+    check_slice(s[::-2], "olh", "str reverse step")
+    check_slice(s[9:99], "", "str out of range")
+
+    let cn = "你好世界"
+    check_slice(cn[1:3], "好世", "str cn basic")
+    check_slice(cn[::-1], "界世好你", "str cn reverse")
+}
+
+# ========================================
+# bytes 切片
+# ========================================
+
+func TestSliceBytes() {
+    let b = b"\x01\x02\x03\x04\x05"
+
+    check_slice(b[1:4][0], "2", "bytes basic head")
+    check_slice(b[1:4][2], "4", "bytes basic tail")
+    check_slice(b[::-1][0], "5", "bytes reverse head")
+    check_slice(b[::-1][4], "1", "bytes reverse tail")
+    check_slice(b[::2][2], "5", "bytes step last")
+    check_slice(b[9:99], "", "bytes out of range")
+}
+
+# ========================================
+# 动态边界 / 组合用法 / 方法共存
+# ========================================
+
+func TestSliceDynamic() {
+    let a = [1, 2, 3, 4, 5]
+    let i = 1
+    let j = 4
+
+    check_slice(a[i:j], "[2, 3, 4]", "dyn vars")
+    check_slice(a[i+1:j+1], "[3, 4, 5]", "dyn exprs")
+    check_slice(a[len(a)-2:len(a)], "[4, 5]", "dyn len expr")
+
+    check_slice(a[0:3][1], "2", "chained index")
+    check_slice("hello"[1:4][::-1], "lle", "chained reverse")
+
+    let total = 0
+    for x in a[1:4] { total = total + x }
+    check_slice(total, "9", "for-in over slice")
+
+    # 与既有 list.slice(start, end) 方法共存
+    check_slice(a.slice(1, 3), "[2, 3]", "method coexist")
+}
+
+# ========================================
+# 复杂场景：表达式边界 / 链式 / 算法实战
+# ========================================
+
+func _slice_bound_f() { return 1 }
+
+func TestSliceComplex() {
+    let a = [1, 2, 3, 4, 5]
+
+    # 表达式边界（函数调用、算术）
+    println("M1")
+    check_slice(a[_slice_bound_f():_slice_bound_f()+2], "[2, 3]", "expr-func-bound")
+    check_slice(a[len(a)-3:len(a)-1], "[3, 4]", "expr-len-bound")
+
+    # 三元表达式作为边界（冒号歧义场景）
+    let x = 1
+    check_slice(a[x > 0 ? 1 : 3 : 4], "[2, 3, 4]", "ternary-bound")
+
+    # 方法结果与 dict 值的链式切片
+    check_slice("a,b,c,d".split(",")[1:3], "[b, c]", "split-slice")
+    check_slice(a[1:][0:2], "[2, 3]", "chain-slice")
+    println("M2")
+    let d = {"ports": [22, 80, 443]}
+    check_slice(d["ports"][:2], "[22, 80]", "dict-value-slice")
+
+    # 高阶函数作用于切片结果
+    check_slice(array.Map(a[0:3], func(v) -> v * 10), "[10, 20, 30]", "hof-map")
+    check_slice(array.Filter(a[:], func(v) -> v % 2 == 0), "[2, 4]", "hof-filter")
+
+    # 切片比较与 len
+    if a[0:2] == [1, 2] { println("") } else { check_slice("cmp", "ok", "slice-cmp") }
+    check_slice(len(a[1:4]), "3", "len-slice")
+
+    # struct 字段切片 / 闭包捕获切片
+    println("M3")
+    let buf = SliceBuf{items: [10, 20, 30, 40]}
+    check_slice(buf.items[1:3], "[20, 30]", "struct-field")
+    let get_head = func() {
+        let src = [7, 8, 9]
+        return src[0:2]
+    }
+    check_slice(get_head(), "[7, 8]", "closure-slice")
+
+    # 空容器 / 大步长 / 单元素区间
+    check_slice([][:], "[]", "empty-list")
+    check_slice(""[0:0], "", "empty-str")
+    check_slice(a[::100], "[1]", "huge-step")
+    check_slice(a[2:3], "[3]", "single-elem")
+
+    # emoji（rune 语义）
+    let em = "a🎉b🎉c"
+    check_slice(em[1:2], "🎉", "emoji-slice")
+    check_slice(em[::-1], "c🎉b🎉a", "emoji-reverse")
+
+    # 多返回值携带切片
+    println("M4")
+    let p, q = _two_slices()
+    check_slice(p, "[1, 2]", "multi-ret-1")
+    check_slice(q, "[5, 4]", "multi-ret-2")
+
+    # while + 手动游标分块（越界收敛）
+    let data = "aaXbbXcc"
+    let parts = []
+    let pos = 0
+    while pos < len(data) {
+        let end = pos + 2
+        if end > len(data) { end = len(data) }
+        parts.append(data[pos:end])
+        pos = end
+    }
+    check_slice(parts, "[aa, Xb, bX, cc]", "while-chunks")
+
+    # JSON / 正则结果再切片
+    println("M5")
+    let j = json.parse("[1,2,3,4,5]")
+    check_slice(j[1:4], "[2, 3, 4]", "json-slice")
+    check_slice(regex.find("port=[0-9]+", "port=8443 proto=tcp")[0:4], "port", "regex-slice")
+
+    # 字符串管线
+    let line = "GET /admin HTTP/1.1"
+    let lp = line.split(" ")
+    check_slice(lp[0], "GET", "pipe-method")
+    check_slice(lp[1][0:1], "/", "pipe-first-char")
+    check_slice(lp[1][1:], "admin", "pipe-path")
+    check_slice(line[len(line)-8:], "HTTP/1.1", "pipe-tail")
+
+    # 二分查找 / 滑动窗口 / 分治反转（切片经典算法）
+    println("M6")
+    let sorted = [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]
+    check_slice(_bsearch(sorted, 23), "5", "bsearch-hit")
+    check_slice(_bsearch(sorted, 40), "-1", "bsearch-miss")
+    check_slice(_max_sum_window([1, 4, 2, 9, 3, 7], 2), "12", "window")
+    check_slice(_rev("abcdef"), "fedcba", "divide-reverse")
+
+    # 快排（循环构建列表后再切片，函数内无声明提升问题）
+    check_slice(_qsort([5, 3, 8, 1, 9, 2]), "[1, 2, 3, 5, 8, 9]", "quicksort")
+
+    # 大列表尾部切片（性能 sanity）
+    let big = []
+    for i in range(1, 100000) { big.append(i) }
+    let tail = big[-1000:]
+    check_slice(len(tail), "1000", "big-tail-len")
+    check_slice(tail[0], "99001", "big-tail-head")
+}
+
+func _two_slices() {
+    return [1, 2, 3][0:2], [4, 5][::-1]
+}
+
+func _bsearch(arr, target) {
+    let lo = 0
+    let hi = len(arr) - 1
+    while lo <= hi {
+        let mid = (lo + hi) / 2
+        if arr[mid] == target { return mid }
+        if arr[mid] < target { lo = mid + 1 } else { hi = mid - 1 }
+    }
+    return -1
+}
+
+func _max_sum_window(arr, k) {
+    let best = 0
+    for i in range(0, len(arr)-k) {
+        let w = arr[i:i+k]
+        let s = 0
+        for v in w { s = s + v }
+        if s > best { best = s }
+    }
+    return best
+}
+
+func _rev(s) {
+    if len(s) <= 1 { return s }
+    let half = len(s) / 2
+    return _rev(s[half:]) + _rev(s[:half])
+}
+
+func _qsort(arr) {
+    if len(arr) <= 1 { return arr }
+    let pivot = arr[0]
+    let less = []
+    let more = []
+    for x in arr[1:] {
+        if x < pivot { less.append(x) } else { more.append(x) }
+    }
+    let out = _qsort(less)
+    out.append(pivot)
+    out.extend(_qsort(more))
+    return out
+}
+
+struct SliceBuf { items }
+
+# ========================================
+# 浅拷贝语义：外层独立、内层共享
+# ========================================
+
+func TestSliceShallowCopy() {
+    let orig = [[1], [2]]
+    let cp = orig[:]
+    cp[0].append(99)
+    # 内层共享：orig[0] 也变
+    check_slice(orig[0], "[1, 99]", "shallow-inner-shared")
+    # 外层独立：cp 追加不影响 orig 长度
+    cp.append([3])
+    check_slice(len(orig), "2", "shallow-outer-independent")
+
+    # string/bytes 不可变，切片天然隔离
+    let s = "hello"
+    let sc = s[:]
+    check_slice(sc, "hello", "str-copy")
+}
+
+func TestSliceAll() {
+    TestSliceList()
+    TestSliceString()
+    TestSliceBytes()
+    TestSliceDynamic()
+    TestSliceComplex()
+    TestSliceShallowCopy()
+
+    println("==== slice all ok ====")
+}

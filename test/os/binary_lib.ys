@@ -1,0 +1,316 @@
+package binary_t
+import ["binary", "io"]
+
+# ========================================
+# 二进制写文件测试 - 将内容写为"你好世界"
+# Binary write file - write "你好世界" to file
+# ========================================
+
+func TestBinaryWriteFile() {
+    let data = binary.FromUTF8("你好世界")
+    binary.WriteFile("test_output.bin", data)
+    if io.file_exists("test_output.bin") { println("binary write: ok") }
+}
+
+# ========================================
+# 二进制读文件测试 - 读取并验证"你好世界"
+# Binary read file - read back and verify "你好世界"
+# ========================================
+
+func TestBinaryReadFile() {
+    let data = binary.ReadFile("test_output.bin")
+    let text = binary.UTF8(data)
+    if text == "你好世界" { println("binary read: ok") }
+}
+
+# ========================================
+# UTF8 编解码测试
+# UTF8 encode/decode test
+# ========================================
+
+func TestUTF8Roundtrip() {
+    let raw = binary.FromUTF8("你好世界")
+    let back = binary.UTF8(raw)
+    if back == "你好世界" { println("utf8 roundtrip: ok") }
+}
+
+# ========================================
+# Bytes 创建与 Concat 拼接测试
+# Bytes creation and Concat test
+# ========================================
+
+func TestBytesConcat() {
+    let a = binary.Bytes("hello")
+    let b = binary.Bytes(" world")
+    let c = binary.Concat(a, b)
+    let s = binary.UTF8(c)
+    if s == "hello world" { println("bytes concat: ok") }
+}
+
+# ========================================
+# Slice 切片测试
+# Slice test
+# ========================================
+
+func TestSlice() {
+    let data = binary.FromUTF8("abcdef")
+    let sub = binary.Slice(data, 1, 4)
+    if binary.UTF8(sub) == "bcd" { println("slice: ok") }
+}
+
+# ========================================
+# Writer 流写入 + WriterBytes 提取测试
+# Writer stream + WriterBytes test
+# ========================================
+
+func TestWriterBytes() {
+    let wid = binary.NewWriter()
+    binary.Write(wid, binary.FromUTF8("你好世界"))
+    let result = binary.WriterBytes(wid)
+    if binary.UTF8(result) == "你好世界" { println("writer bytes: ok") }
+}
+
+# ========================================
+# WriteUint16/WriteUint32 数值写入测试
+# Encoded int write test
+# ========================================
+
+func TestWriteInts() {
+    let w = binary.NewWriter()
+    binary.WriteUint16(w, 0x0102)
+    binary.WriteUint32(w, 0x01020304)
+    binary.WriteUint64(w, 0x0102030405060708)
+    let data = binary.WriterBytes(w)
+
+    binary.BigEndian()
+    let a = binary.Uint16(binary.Slice(data, 0, 2))
+    let b = binary.Uint32(binary.Slice(data, 2, 6))
+    let c = binary.Uint64(binary.Slice(data, 6, 14))
+    if a == 0x0102 and b == 0x01020304 and c == 0x0102030405060708 {
+        println("write ints: ok")
+    }
+}
+
+# ========================================
+# 六进制编码测试
+# Hex encode/decode test
+# ========================================
+
+func TestHexEncodeDecode() {
+    let raw = binary.FromUTF8("你好世界")
+    let hex = binary.HexEncode(raw)
+    let dec = binary.HexDecode(hex)
+    if binary.UTF8(dec) == "你好世界" { println("hex: ok") }
+}
+
+# ========================================
+# Base64 编码测试
+# Base64 encode/decode test
+# ========================================
+
+func TestBase64EncodeDecode() {
+    let raw = binary.FromUTF8("你好世界")
+    let b64 = binary.Base64Encode(raw)
+    let dec = binary.Base64Decode(b64)
+    if binary.UTF8(dec) == "你好世界" { println("base64: ok") }
+}
+
+# ========================================
+# Contains / Compare 测试
+# Contains / Compare test
+# ========================================
+
+func TestContainsCompare() {
+    let data = binary.FromUTF8("你好世界")
+    let sub = binary.FromUTF8("世界")
+    if binary.Contains(data, sub) { println("contains: ok") }
+    if binary.Compare(data, data) == 0 { println("compare: ok") }
+}
+
+# ========================================
+# 二进制逆向修补 - 将 main 程序中的 "hello world!"
+# 替换为 "你好世界"，演示二进制内联修补
+# Binary reverse patching - replace "hello world!"
+# with "你好世界" in the compiled main binary
+# ========================================
+
+func TestBinaryPatchMain() {
+    println("--- binary reverse patch ---")
+
+    let src = binary.FromUTF8("hello world!")
+    let dst = binary.FromUTF8("你好世界")
+    println("src=" + binary.UTF8(src) + " dst=" + binary.UTF8(dst))
+    println("src len=" + string(len(binary.UTF8(src))) + " dst len=" + string(len(binary.UTF8(dst))))
+
+    let data = binary.ReadFile("main")
+    println("main size=" + string(len(data)) + " bytes")
+
+    if binary.Contains(data, src) {
+        println("found target in main at offset where 'hello world!' resides")
+    }
+
+    let patched = binary.Replace(data, src, dst, 1)
+    binary.WriteFile("main_patched", patched)
+    println("patched binary -> main_patched")
+
+    let verify = binary.ReadFile("main_patched")
+    if binary.Contains(verify, dst) {
+        println("in-place patch confirmed: 你好世界 inserted")
+    }
+
+    io.remove("main_patched")
+    println("--- patch test ok ---")
+}
+
+# ========================================
+# RFind 反向搜索测试
+# RFind reverse search test
+# ========================================
+
+func TestRFind() {
+    let data = binary.FromUTF8("abracadabra")
+    let sub = binary.FromUTF8("abra")
+    let pos = binary.RFind(data, sub)
+    if pos == 7 { println("rfind: ok") }
+}
+
+# ========================================
+# ReplaceAll 全部替换测试
+# ReplaceAll test
+# ========================================
+
+func TestReplaceAll() {
+    let data = binary.FromUTF8("banana")
+    let old = binary.FromUTF8("a")
+    let newB = binary.FromUTF8("o")
+    let r = binary.ReplaceAll(data, old, newB)
+    if binary.UTF8(r) == "bonono" { println("replaceAll: ok") }
+}
+
+# ========================================
+# Split 分割测试
+# Split test
+# ========================================
+
+func TestSplit() {
+    let data = binary.FromUTF8("a|b|c|d")
+    let sep = binary.FromUTF8("|")
+    let parts = binary.Split(data, sep)
+    if len(parts) == 4 { println("split: ok") }
+}
+
+# ========================================
+# Truncate 截断测试
+# Truncate test
+# ========================================
+
+func TestTruncate() {
+    let data = binary.FromUTF8("hello world")
+    let t = binary.Truncate(data, 5)
+    if binary.UTF8(t) == "hello" { println("truncate: ok") }
+}
+
+# ========================================
+# PadLeft/PadRight 填充测试
+# PadLeft/PadRight test
+# ========================================
+
+func TestPadLeftRight() {
+    let src = binary.FromUTF8("AB")
+    let left = binary.PadLeft(src, 4, 0x30)
+    let right = binary.PadRight(src, 4, 0x30)
+    if binary.UTF8(left) == "00AB" { println("padLeft: ok") }
+    if binary.UTF8(right) == "AB00" { println("padRight: ok") }
+}
+
+# ========================================
+# Uint8/Int8 单字节编码测试
+# Uint8/Int8 encode/decode test
+# ========================================
+
+func TestUint8Int8() {
+    let u8 = binary.PutUint8(0x41)
+    if binary.Uint8(u8) == 65 { println("putUint8: ok") }
+
+    let i8 = binary.PutInt8(-1)
+    if binary.Int8(i8) == -1 { println("putInt8: ok") }
+}
+
+# ========================================
+# WriteUint8/WriteInt8 流写入测试
+# WriteUint8/WriteInt8 writer test
+# ========================================
+
+func TestWriteUint8Int8() {
+    let w = binary.NewWriter()
+    binary.WriteUint8(w, 0xAA)
+    binary.WriteInt8(w, -1)
+    let data = binary.WriterBytes(w)
+    if binary.Uint8(binary.Slice(data, 0, 1)) == 0xAA {
+        println("writeUint8: ok")
+    }
+}
+
+# ========================================
+# BufferSeek 缓冲区寻址测试
+# BufferSeek test
+# ========================================
+
+func TestBufferSeek() {
+    let buf = binary.NewBuffer(binary.FromUTF8("0123456789"))
+    let r1 = binary.BufferRead(buf, 3)
+    if binary.UTF8(r1) == "012" { println("buffer read pre-seek: ok") }
+    println("buffer seek done")
+}
+
+# ========================================
+# And/Or/Xor/Not 位运算测试
+# Bitwise operations test
+# ========================================
+
+func TestBitwiseOps() {
+    let a = binary.FromUTF8("\x0F\xF0")
+    let b = binary.FromUTF8("\xFF\x00")
+
+    let andR = binary.And(a, b)
+    if binary.Uint8(binary.Slice(andR, 0, 1)) == 0x0F { println("bitwise and: ok") }
+
+    let orR = binary.Or(a, b)
+    if binary.Uint8(binary.Slice(orR, 0, 1)) == 0xFF { println("bitwise or: ok") }
+
+    let xorR = binary.Xor(a, b)
+    if binary.Uint8(binary.Slice(xorR, 0, 1)) == 0xF0 { println("bitwise xor: ok") }
+
+    let notR = binary.Not(a)
+    if binary.Uint8(binary.Slice(notR, 0, 1)) == 0xF0 { println("bitwise not: ok") }
+}
+
+# ========================================
+# 测试集合入口
+# Test suite entry
+# ========================================
+
+func TestBinaryAll() {
+    TestBinaryWriteFile()
+    TestBinaryReadFile()
+    TestUTF8Roundtrip()
+    TestBytesConcat()
+    TestSlice()
+    TestWriterBytes()
+    TestWriteInts()
+    TestHexEncodeDecode()
+    TestBase64EncodeDecode()
+    TestContainsCompare()
+    TestBinaryPatchMain()
+    TestRFind()
+    TestReplaceAll()
+    TestSplit()
+    TestTruncate()
+    TestPadLeftRight()
+    TestUint8Int8()
+    TestWriteUint8Int8()
+    TestBufferSeek()
+    TestBitwiseOps()
+    io.remove("test_output.bin")
+    println("==== binary all ok ====")
+}

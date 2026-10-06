@@ -1,0 +1,103 @@
+package main
+
+import ["cli", "color", "io", "strings"]
+
+func check(condition, message) {
+    if not condition {
+        panic(message)
+    }
+}
+
+func configure_help_color(app, accent) {
+    if accent == "red" {
+        app.color(color.Red())
+        return
+    }
+    if accent == "cyan" {
+        app.color(color.Cyan())
+        return
+    }
+
+    let rgb = strings.Split(accent, ",")
+    if len(rgb) == 3 {
+        app.color(color.RGB(int(rgb[0]), int(rgb[1]), int(rgb[2])))
+    } else {
+        println("Unknown accent; using cyan. Use red, cyan, or R,G,B.")
+        app.color(color.Cyan())
+    }
+}
+
+func main() {
+    let app = cli.New("file-report", "Read a text file and print or save a short report")
+    app.flag("verbose", "v", false, "show additional input details")
+    app.flag("dry_run", "n", false, "preview output without writing it")
+    app.flag("help", "h", false, "show this help")
+    app.option("config", "c", "", "optional configuration file")
+    app.option("output", "o", "", "write report to this path")
+    app.option("accent", "a", "cyan", "help color: red, cyan, or R,G,B")
+    app.arg("input", false, "", "text file to inspect")
+
+    let argv = args
+    if len(argv) > 0 and strings.HasSuffix(argv[0], "file_report.ys") {
+        argv = argv[1:]
+    }
+    let opts = app.parse(argv)
+    configure_help_color(app, opts.accent)
+
+    if opts.help {
+        println(app.usage())
+        return
+    }
+    if opts.input == "" {
+        app.print_help()
+        println("Examples:")
+        println("  file-report --verbose notes.txt")
+        println("  file-report -vn -cconfig.ini --output=report.txt notes.txt")
+        println("  file-report --accent=80,180,240 notes.txt -- --child-flag")
+        return
+    }
+
+    let source = io.read_file(opts.input) catch ""
+    if source == "" {
+        println("Unable to read input file: " + opts.input)
+        return
+    }
+
+    let report = "File: " + opts.input + "\nCharacters: " + string(len(source)) + "\n"
+    if opts.config != "" {
+        report = report + "Config: " + opts.config + "\n"
+    }
+    if opts.verbose {
+        report = report + "Verbose: enabled\n"
+        report = report + "Output: " + (opts.output == "" ? "stdout" : opts.output) + "\n"
+        report = report + "Help colors: " + string(app.color()) + "\n"
+    }
+
+    if opts.output == "" {
+        println(report)
+    } elif opts.dry_run {
+        println("Dry run: report would be written to " + opts.output)
+        println(report)
+    } else {
+        io.write_file(opts.output, report)
+        println("Report written to " + opts.output)
+    }
+
+    if len(opts.unknown) > 0 {
+        println("Unrecognized arguments:")
+        for item in opts.unknown {
+            println("  " + item)
+        }
+    }
+    if len(opts.rest) > 0 {
+        println("Arguments after -- (available for a child command):")
+        for item in opts.rest {
+            println("  " + item)
+        }
+    }
+
+    let raw = cli.Parse(["--plugin-mode", "fast", "--", "--child-verbose"])
+    println("Raw cli.Parse: argv=" + string(len(raw.argv)) +
+        ", unknown=" + string(len(raw.unknown)) +
+        ", forwarded=" + string(len(raw.rest)))
+}

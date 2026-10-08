@@ -1,0 +1,5 @@
+package main
+
+println("this statement must be inside main")
+
+func main() {}

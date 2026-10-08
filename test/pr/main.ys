@@ -1,0 +1,17 @@
+package main
+import ["os", "RichProgress/progress"]
+
+func main() {
+    let final_bar = CurlyFrameBar(100,100,40)
+    assert(final_bar == "{########################################} 100%", "final progress bar")
+    print("\r" + CurlyFrameBar(0, 100, 40))
+    for current in 1..100 {
+        os.sleep("0.1s")
+        let bar = "\r" + CurlyFrameBar(current, 100, 40)
+        if current == 100 {
+            println(bar)
+        } else {
+            print(bar)
+        }
+    }
+}

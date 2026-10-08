@@ -1,0 +1,6 @@
+package main
+
+func main() {
+	let unused_value = 42
+	println("check unused variable")
+}

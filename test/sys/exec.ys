@@ -1,0 +1,35 @@
+package main
+import ["sys", "io", "os"]
+
+func main() {
+    let browsers = [
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+        "microsoft-edge",
+        "msedge",
+        "chrome",
+    ]
+
+    let launched = false
+    for browser in browsers {
+        let path = io.which(browser)
+        if path == "" {
+            continue
+        }
+
+        let child = sys.process_start(path, ["--new-window", "https://www.bing.com"]) catch null
+        if child != null {
+            println("opened via: " + browser + " -> " + path)
+            launched = true
+            break
+        }
+    }
+
+    if not launched {
+        println("no supported browser found; try installing Chrome or Chromium")
+    }
+
+    os.exit(0)
+}

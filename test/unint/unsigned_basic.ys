@@ -1,0 +1,33 @@
+package main
+
+func check(condition, name) {
+    if not condition {
+        panic("unsigned test failed: " + name)
+    }
+    println("PASS: " + name)
+}
+
+func main() {
+    let maximum = 0xffffffffffffffff
+    let wrapped = maximum + 1
+    let difference = uint(1) - uint(2)
+    let quotient = maximum / 2
+    let shifted = maximum >> 63
+    let greater_than_signed_max = maximum > 0x7fffffffffffffff
+    let negative_less_than_unsigned = -1 < maximum
+    let converted = ulong("18446744073709551615")
+    let hexadecimal = hex(maximum)
+    let narrowed = ushort(65535)
+
+    check(maximum == converted, "literal maximum matches ulong() parsed value")
+    check(wrapped == 0, "max + 1 wraps to zero")
+    check(difference == 18446744073709551615, "uint subtraction wraps to max uint64")
+    check(quotient == 9223372036854775807, "uint division floors the value when halving max")
+    check(shifted == 1, "unsigned right shift is logical")
+    check(greater_than_signed_max, "unsigned max is greater than signed max")
+    check(negative_less_than_unsigned, "negative number stays less than unsigned max")
+    check(hexadecimal == "0xffffffffffffffff", "hex() renders uint64 value correctly")
+    check(narrowed == 65535, "ushort() accepts the full 16-bit range")
+
+    println("==== unsigned integration test passed ====")
+}

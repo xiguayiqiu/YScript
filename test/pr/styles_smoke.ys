@@ -1,0 +1,29 @@
+package main
+import ["RichProgress/progress"]
+
+func main() {
+    println(ShadeBar(50, 100, 8))
+    println(MediumBar(50, 100, 8))
+    println(ThinBar(50, 100, 8))
+    println(DoubleBar(50, 100, 8))
+    println(SquareBar(50, 100, 8))
+    println(DiamondBar(50, 100, 8))
+    println(StarBar(50, 100, 8))
+    println(HeartBar(50, 100, 8))
+    println(PlusBar(50, 100, 8))
+    println(HashBar(50, 100, 8))
+    println(EqualBar(50, 100, 8))
+    println(DotBar(50, 100, 8))
+    println(WaveBar(50, 100, 8))
+    println(PipeBar(50, 100, 8))
+    println(SlashBar(50, 100, 8))
+    println(PixelBar(50, 100, 8))
+    println(SegmentBar(50, 100, 8))
+    println(BrickBar(50, 100, 8))
+    println(BlockSpaceBar(50, 100, 8))
+    println(ChevronBar(50, 100, 8))
+    println(CircleFrameBar(50, 100, 8))
+    println(AngleFrameBar(50, 100, 8))
+    println(CurlyFrameBar(50, 100, 8))
+    println(PipeFrameBar(50, 100, 8))
+}

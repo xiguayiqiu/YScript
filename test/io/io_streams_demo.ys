@@ -1,0 +1,96 @@
+package main
+import ["io"]
+
+func main() {
+    println("=== io stream capabilities ===")
+
+    let reader = io.NewReader("stream-data")
+    let first = io.Read(reader, 6)
+    println("Read(6): " + string(first))
+    println("ReadByte(): " + io.ReadByte(reader))
+    io.Skip(reader, 1)
+    println("ReadAll after Skip: " + string(io.ReadAll(reader)))
+    io.Close(reader)
+
+    let writer = io.NewWriter()
+    println("WriteString bytes: " + io.WriteString(writer, "memory-"))
+    println("Write bytes: " + io.Write(writer, b"writer"))
+    println("writer String: " + io.String(writer))
+    println("writer Bytes: " + string(io.Bytes(writer)))
+
+    let readWriter = io.NewReadWriter("rw")
+    println("ReadWriter first byte: " + string(io.Read(readWriter, 1)))
+    io.WriteString(readWriter, "-tail")
+    println("ReadWriter remainder: " + string(io.ReadAll(readWriter)))
+
+    let copySource = io.NewReader("copy payload")
+    let copyTarget = io.NewWriter()
+    println("Copy byte count: " + io.Copy(copyTarget, copySource))
+    println("Copy output: " + io.String(copyTarget))
+
+    let limitedSource = io.NewReader("0123456789")
+    let limited = io.LimitReader(limitedSource, 4)
+    println("LimitReader(4): " + string(io.ReadAll(limited)))
+
+    let joined = io.MultiReader(io.NewReader("left-"), io.NewReader("right"))
+    println("MultiReader: " + string(io.ReadAll(joined)))
+
+    let pipe = io.Pipe()
+    let pipeWriter = warp {
+        io.WriteString(pipe.writer, "pipe payload")
+        io.Close(pipe.writer)
+    }
+    println("Pipe ReadAll: " + string(io.ReadAll(pipe.reader)))
+    pipeWriter.await()
+    io.Close(pipe.reader)
+
+    let teeSource = io.NewReader("audit me")
+    let auditLog = io.NewWriter()
+    let tee = io.TeeReader(teeSource, auditLog)
+    println("TeeReader output: " + string(io.ReadAll(tee)))
+    println("TeeReader copy: " + io.String(auditLog))
+
+    let firstSink = io.NewWriter()
+    let secondSink = io.NewWriter()
+    let multiSink = io.MultiWriter(firstSink, secondSink)
+    println("MultiWriter bytes: " + io.WriteString(multiSink, "fan-out"))
+    println("MultiWriter sink 1: " + io.String(firstSink))
+    println("MultiWriter sink 2: " + io.String(secondSink))
+
+    let sectionSource = io.NewReader(b"0123456789")
+    let section = io.SectionReader(sectionSource, 2, 4)
+    println("SectionReader(2, 4): " + string(io.ReadAll(section)))
+
+    let discard = io.Discard()
+    println("Discard accepted bytes: " + io.WriteString(discard, "not retained"))
+
+    let nopBase = io.NewReader("still readable")
+    let nopReader = io.NopCloser(nopBase)
+    io.Close(nopReader)
+    println("NopCloser preserves source: " + string(io.ReadAll(nopBase)))
+
+    let bufferedSource = io.NewReader("buffered reader")
+    let bufferedReader = io.NewBufferedReader(bufferedSource, 5)
+    println("NewBufferedReader first chunk: " + string(io.Read(bufferedReader, 8)))
+    println("NewBufferedReader remainder: " + string(io.ReadAll(bufferedReader)))
+
+    let bufferedTarget = io.NewWriter()
+    let bufferedWriter = io.NewBufferedWriter(bufferedTarget, 4)
+    io.WriteString(bufferedWriter, "abcdefghijkl")
+    println("NewBufferedWriter output: " + io.String(bufferedTarget))
+
+    println("Stdin handle: " + io.Stdin())
+    let stdout = io.Stdout()
+    io.WriteString(stdout, "Stdout handle wrote this line\n")
+    let stderr = io.Stderr()
+    io.WriteString(stderr, "Stderr handle wrote this line\n")
+
+    println("Error EOF: " + io.EOF())
+    println("Error seek unsupported: " + io.ErrSeekUnsupported())
+    println("Error closed: " + io.ErrClosed())
+    println("Error no progress: " + io.ErrNoProgress())
+    println("Error unexpected EOF: " + io.ErrUnexpectedEOF())
+    println("Error short buffer: " + io.ErrShortBuffer())
+
+    println("=== io stream demo finished ===")
+}

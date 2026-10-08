@@ -1,0 +1,47 @@
+package main
+
+import ["http", "io", "ocr", "os", "strings"]
+
+func main(){
+let image_path = "/tmp/ysc_live_captcha.png"
+let file_override = os.getenv("OCR_TEST_FILE")
+if file_override != null and file_override != "" {
+	image_path = file_override
+}
+
+let expected = os.getenv("OCR_TEST_EXPECT")
+if expected == null {
+	expected = ""
+}
+
+let psm = 8
+let psm_setting = os.getenv("OCR_TEST_PSM")
+if psm_setting != null and psm_setting != "" {
+	psm = int(psm_setting)
+}
+
+let whitelist = os.getenv("OCR_TEST_WHITELIST")
+if whitelist == null or whitelist == "" {
+	whitelist = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+}
+
+let attempt = 1
+while attempt <= 10 {
+	let resp = http.Get("http://127.0.0.1:8080/captcha/generate", {"timeout": 10})
+	if resp == null {
+		panic("failed to fetch live captcha image from http://127.0.0.1:8080/captcha/generate (" + http.LastError() + ")")
+	}
+
+	io.write_file(image_path, http.Body(resp))
+	let recognized = ocr.from_file(image_path, "eng", psm, whitelist) catch ""
+	let actual = strings.TrimSpace(recognized)
+
+	println("attempt:", attempt, "recognized:", actual)
+	if expected != "" {
+		println("expected:", expected, "match:", actual == expected)
+	}
+	attempt = attempt + 1
+}
+
+println("Completed 10 live OCR attempts")
+}

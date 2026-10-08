@@ -1,0 +1,14 @@
+package main
+
+func main() {
+    row_number <- 1
+    while row_number <= 9 {
+        column_number <- 1
+        while column_number <= row_number {
+            printf("%d×%d=%d  ", column_number, row_number, column_number * row_number)
+            column_number = column_number + 1
+        }
+        println()
+        row_number = row_number + 1
+    }
+}

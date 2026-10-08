@@ -1,0 +1,40 @@
+package main
+
+import ["load", "io", "path"]
+
+func main() {
+    let pluginPath = path.abs(path.join(path.dirname(__FILE__), "plugin.ys"))
+    let pluginRef = "plugin.ys"
+
+    io.write_file(pluginPath, "func println() {}")
+    let conflict = load.load(pluginRef) catch "caught"
+    assert(conflict == "caught", "plugin must not shadow a builtin")
+    assert(len(load.loaded()) == 0, "rejected plugin must not be registered")
+
+    io.write_file(pluginPath, "func current() { return \"v1\" }")
+
+    let plugin = load.load(pluginRef)
+    assert(plugin.current() == "v1", "initial plugin load failed")
+    assert(len(load.loaded()) == 1, "loaded plugin list is incorrect")
+
+    let samePlugin = load.load(pluginRef)
+    assert(samePlugin.current() == "v1", "loading an active plugin should be idempotent")
+
+    io.write_file(pluginPath, "func current() { return \"v2\" }")
+    let updated = load.reload(pluginRef)
+    assert(updated.current() == "v2", "plugin reload did not replace the function")
+    assert(plugin.current() == "v2", "existing plugin handle did not observe the replacement")
+    
+    io.write_file(pluginPath, "func current( { return \"broken\" }")
+    let failed = load.reload(pluginRef) catch "caught"
+    assert(failed == "caught", "invalid plugin source should fail to reload")
+    assert(plugin.current() == "v2", "failed reload must preserve the active version")
+
+    assert(load.unload(pluginRef), "plugin unload failed")
+    assert(len(plugin) == 0, "unloaded plugin exports should be cleared")
+    assert(len(load.loaded()) == 0, "unloaded plugin remained in the registry")
+    assert(not load.unload(pluginRef), "unloading an unknown plugin should return false")
+    
+    io.remove(pluginPath)
+    println("load hot-reload tests: ok")
+}

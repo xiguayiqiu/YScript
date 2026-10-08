@@ -1,0 +1,77 @@
+#!permit network, exec:curl, file_read:test/binary/*, file_write:test/binary/*
+#!permit exec:ffprobe
+#!permit exec:ffmpeg
+package main
+import ["binary", "crypto", "io", "os"]
+
+func check(condition, name) {
+    if not condition {
+        panic("audio/video stream check failed: " + name)
+    }
+    println("PASS: " + name)
+}
+
+func main() {
+    let host = "https://k0u77y55y3dy95zw240ex930x1000x500x800xx2cz.djvod.ndcimgs.com"
+    let path = "/upic/2026/08/11/14/"
+    let name = "BMjAyNjA4MTExNDQwMTZfMTA4MDAzMDMyNV8yMDUxOTM4MzY1NTBfMV8z_b_Bce69816a9fa0ef725f63fcb0063a36d4"
+    let query1 = "?tag=1-1791360100-unknown-0-u1tuvjtmq7-74df71924f992ae8&provider=self"
+    let query2 = "&clientCacheKey=3xh5vs2bibuveg2_b.mp4&di=71f855d0&bp=14944&x-ks-ptid=205193836550"
+    let query3 = "&kwai-not-alloc=self-cdn&kcdntag=p:Chongqing;i:ChinaTelecom;ft:UNKNOWN;h:COLD;"
+    let query4 = "pn=kuaishouVideoProjection&ocid=300000401&tt=b&ss=vpm"
+    let url = host + path + name + ".mp4" + query1 + query2 + query3 + query4
+
+    let sourcePath = "test/binary/audio_video_stream.mp4"
+    let copyPath = "test/binary/audio_video_stream-copy.mp4"
+
+    # curl writes directly to disk so the media payload is not buffered in YScript memory.
+    let download = os.exec(
+        "curl", "--fail", "--location", "--silent", "--show-error",
+        "--retry", "2", "--connect-timeout", "30", "--max-time", "600",
+        "--output", sourcePath, url,
+    )
+    check(download.exit_code == 0, "HTTP download succeeded")
+
+    let sourceInfo = binary.FileStat(sourcePath)
+    check(sourceInfo.size > 16, "download is a non-empty media file")
+
+    let audioProbe = os.exec(
+        "ffprobe", "-v", "error", "-select_streams", "a:0",
+        "-show_entries", "stream=codec_name,sample_rate,channels",
+        "-of", "csv=p=0", sourcePath,
+    )
+    check(audioProbe.exit_code == 0 and audioProbe.stdout != "", "audio stream present")
+    println("Audio stream: " + audioProbe.stdout)
+
+    let source = binary.Open(sourcePath)
+    let header = binary.FileRead(source, 16)
+    check(len(header) == 16, "read MP4 header bytes")
+    check(binary.UTF8(binary.Slice(header, 4, 8)) == "ftyp", "ISO BMFF ftyp signature")
+    let boxSize = binary.Uint32(binary.Slice(header, 0, 4))
+    check(boxSize >= 8 and int(boxSize) <= int(sourceInfo.size), "valid ftyp box length")
+
+    binary.FileSeek(source, 0, 0)
+    let destination = binary.Create(copyPath)
+    let copied = binary.FileCopy(destination, source)
+    binary.FileClose(source)
+    binary.FileClose(destination)
+
+    let copyInfo = binary.FileStat(copyPath)
+    check(copied == sourceInfo.size, "stream copy byte count")
+    check(copyInfo.size == sourceInfo.size, "stream copy file size")
+    let sourceHash = crypto.HashFile("sha256", sourcePath)
+    let copyHash = crypto.HashFile("sha256", copyPath)
+    check(sourceHash == copyHash, "stream copy preserves every byte")
+
+    let decode = os.exec(
+        "ffmpeg", "-hide_banner", "-v", "error", "-xerror",
+        "-i", copyPath, "-f", "null", "-",
+    )
+    check(decode.exit_code == 0, "full audio/video decode")
+
+    println("MP4 bytes: " + string(sourceInfo.size))
+    println("SHA-256: " + sourceHash)
+    io.remove(copyPath)
+    println("MP4 saved to: " + sourcePath)
+    println("==== audio/video stream test passed ====")
+}

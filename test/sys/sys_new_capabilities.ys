@@ -1,0 +1,99 @@
+package main
+import ["sys", "os", "io"]
+
+func show(label, value) {
+    println(label + ":")
+    println(value)
+    println("---")
+}
+
+func main() {
+    println("=== sys non-exec capability demo ===")
+
+    let cpu = sys.cpu_info()
+    show("cpu_info", cpu)
+
+    let mem = sys.mem_info()
+    show("mem_info", mem)
+
+    let disk = sys.disk_info(".")
+    show("disk_info", disk)
+
+    let osinfo = sys.os_info()
+    show("os_info", osinfo)
+
+    let user = sys.current_user()
+    show("current_user", user)
+
+    let groups = sys.user_groups()
+    show("user_groups", groups)
+
+    let root = sys.is_root()
+    println("is_root: " + root)
+    println("---")
+
+    println("is_readable(README.md): " + sys.is_readable("README.md"))
+    println("is_writable(README.md): " + sys.is_writable("README.md"))
+    println("is_executable(/bin/sh): " + sys.is_executable("/bin/sh"))
+    println("---")
+
+    let pid = os.getpid()
+    let proc = sys.process_info(pid)
+    show("process_info(current_pid)", proc)
+
+    let allprocs = sys.process_list()
+    show("process_list(sample)", allprocs[0:3])
+
+    show("hostname", sys.hostname())
+    show("cwd", sys.cwd())
+
+    let features = sys.cpu_features()
+    show("cpu_features", features)
+
+    show("uptime", sys.uptime())
+
+    let ifaces = sys.net_interfaces()
+    show("net_interfaces", ifaces)
+
+    show("primary_mac", sys.primary_mac())
+    show("default_gateway", sys.default_gateway())
+
+    let path = "test/sys/sys_new_capabilities.bin"
+    let fd = sys.file_open(path, 2)
+    let payload = b"\x00\xffYScript\n"
+    let written = sys.file_write(fd, payload)
+    let seeked = sys.file_seek(fd, 0, 0)
+    let readback = sys.file_read(fd, len(payload))
+    let stat = sys.file_stat(fd)
+    sys.file_close(fd)
+    io.remove(path)
+
+    println("file_write: " + written)
+    println("file_seek: " + seeked)
+    println("file_read: " + readback)
+    println("file_stat: " + stat)
+    println("---")
+
+    let child = sys.process_start("/bin/sh", ["-c", "printf ready"])
+    println("process_start: " + child)
+    println("process_wait: " + sys.process_wait(child.handle))
+    println("---")
+
+    let pipe = sys.pipe()
+    println("pipe: " + pipe)
+    sys.file_close(pipe.read)
+    sys.file_close(pipe.write)
+    println("---")
+
+    let signal_handle = sys.signal_subscribe([10]) catch null
+    if signal_handle != null {
+        let signaled = sys.signal_send(os.getpid(), 10)
+        println("signal_send: " + signaled)
+        println("signal_wait: " + sys.signal_wait(signal_handle, 1000))
+        sys.signal_close(signal_handle)
+    } else {
+        println("signal API unavailable in this environment")
+    }
+
+    println("=== demo finished ===")
+}

@@ -1,0 +1,5 @@
+models "yscript-pr"
+res [
+    "RichProgress/progress",
+    "RichProgress",
+]

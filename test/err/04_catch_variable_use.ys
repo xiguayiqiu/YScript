@@ -1,0 +1,9 @@
+package main
+
+import ["ocr"]
+
+func main() {
+	let psm = 8
+	let recognized = ocr.from_file("image.png", "eng", psm) catch ""
+	println(recognized)
+}

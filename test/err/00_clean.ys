@@ -1,0 +1,6 @@
+package main
+
+func main() {
+	let answer = 42
+	println(answer)
+}

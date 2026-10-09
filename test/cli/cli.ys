@@ -12,9 +12,16 @@ func check(condition, name) {
 func main() {
     let app = cli.New("cli-test", "YScript CLI stdlib integration test")
     app.flag("verbose", "v", false, "enable verbose output")
+    app.flag("quiet", "q", false, "suppress output")
     app.flag("dry_run", "n", false, "do not write files")
+    app.mutually_exclusive(["verbose", "quiet"])
     app.option("config", "c", "default.ini", "configuration file")
-    app.option("limit", "l", "0", "signed numeric limit")
+    app.option("limit", "l", 0, "signed numeric limit")
+    app.option("ratio", "r", 0.5, "floating-point ratio")
+    app.option("enabled", "e", false, "boolean option")
+    app.choices("config", ["config.ini", "default.ini"])
+    app.range("limit", -10, 100)
+    app.multi_option("tag", "t", null, "repeatable tag")
     app.arg("input", true, "", "input file")
 
     let opts = app.parse([
@@ -27,14 +34,35 @@ func main() {
         "config.ini",
         "--limit",
         "-5",
+        "--ratio",
+        "1.25",
+        "--enabled",
+        "true",
+        "--tag",
+        "alpha",
+        "--tag",
+        "beta",
         "input.txt",
     ])
 
     check(opts.verbose, "--verbose and -v set verbose")
     check(opts.dry_run, "-vn parses combined short flags")
     check(opts.config == "config.ini", "attached, equals, and separated option values")
-    check(opts.limit == "-5", "negative numeric option value")
+    check(opts.limit == -5, "negative numeric option converted to integer")
+    check(opts.ratio == 1.25, "option converted to float")
+    check(opts.enabled, "option converted to bool")
+    check(len(opts.tag) == 2 and opts.tag[0] == "alpha" and opts.tag[1] == "beta", "repeated option values collected")
     check(opts.input == "input.txt", "required positional argument")
+
+    let git = cli.New("git-lite", "Git-style commands")
+    let commit = git.command("commit", "record changes")
+    commit.option("message", "m", "", "commit message")
+    let push = git.command("push", "update remote refs")
+    push.option("remote", "r", "origin", "remote name")
+    let commit_opts = git.parse(["commit", "-m", "test commit"])
+    check(commit_opts.command == "commit" and commit_opts.message == "test commit", "subcommand arguments parsed")
+    let push_opts = git.parse(["push", "--remote", "upstream"])
+    check(push_opts.command == "push" and push_opts.remote == "upstream", "multiple subcommands dispatch")
 
     app.color(true)
     app.description_color(color.Yellow())

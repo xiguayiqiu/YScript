@@ -1,0 +1,14 @@
+package main
+
+import ["lstd", "sys"]
+
+func main() {
+    let platform = sys.os_info()["platform"]
+    let library_name = "liblstd_fixture.so"
+    if sys.is_windows() {
+        library_name = "lstd_fixture.dll"
+    } else if not sys.is_linux() {
+        library_name = "liblstd_fixture.dylib"
+    }
+    lstd.load("test/lstd/build/" + platform + "/" + library_name)
+}

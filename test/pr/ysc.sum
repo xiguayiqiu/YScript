@@ -1,2 +1,3 @@
-RichProgress h1:/A8/t2D07frdL6LoKhahLuYUAZHpzAh9+uIsbEh35YU=
-RichProgress/progress h1:8df9hbZj62R7iRdFIOryOUG+e40fco4iYQf6js6OTlY=
+dep [
+    "https://github.com/xiguayiqiu/RichProgress.git" : "f907e6415283e4bad8e26c66c6b4ad289f90a324" : h1:/A8/t2D07frdL6LoKhahLuYUAZHpzAh9+uIsbEh35YU=
+]

@@ -1,6 +1,5 @@
 package main
-
 func main() {
-	let answer = 42
-	println(answer)
+    let answer = 42
+    println(answer)
 }

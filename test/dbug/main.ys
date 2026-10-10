@@ -19,10 +19,10 @@ func score_check(check, weights) {
         points = points + 10
     }
     return {
-        "name": check["name"],
-        "kind": check["kind"],
-        "points": points,
-        "level": risk_level(points),
+    "name": check["name"],
+    "kind": check["kind"],
+    "points": points,
+    "level": risk_level(points),
     }
 }
 
@@ -38,53 +38,53 @@ func analyze_scenario(scenario, weights) {
             total = total + finding["points"]
         } else {
             findings.append({
-                "name": check["name"],
-                "kind": check["kind"],
-                "points": 0,
-                "level": "skipped",
+            "name": check["name"],
+            "kind": check["kind"],
+            "points": 0,
+            "level": "skipped",
             })
         }
     }
 
     return {
-        "name": scenario["name"],
-        "score": total,
-        "level": risk_level(total),
-        "findings": findings,
+    "name": scenario["name"],
+    "score": total,
+    "level": risk_level(total),
+    "findings": findings,
     }
 }
 
 func main() {
     let weights = {
-        "auth": 3,
-        "network": 2,
-        "input": 4,
+    "auth": 3,
+    "network": 2,
+    "input": 4,
     }
     let scenarios = [
-        {
-            "name": "edge-gateway",
-            "checks": [
-                {"name": "default credentials", "kind": "auth", "score": 82, "critical": true, "enabled": true},
-                {"name": "open admin port", "kind": "network", "score": 64, "critical": false, "enabled": true},
-                {"name": "legacy parser", "kind": "input", "score": 91, "critical": false, "enabled": true},
-            ],
-        },
-        {
-            "name": "report-service",
-            "checks": [
-                {"name": "weak token validation", "kind": "auth", "score": 73, "critical": true, "enabled": true},
-                {"name": "debug endpoint", "kind": "network", "score": 88, "critical": true, "enabled": true},
-                {"name": "unused upload path", "kind": "input", "score": 100, "critical": false, "enabled": false},
-            ],
-        },
-        {
-            "name": "worker-node",
-            "checks": [
-                {"name": "stale session", "kind": "auth", "score": 42, "critical": false, "enabled": true},
-                {"name": "exposed metrics", "kind": "network", "score": 56, "critical": false, "enabled": true},
-                {"name": "unsafe archive name", "kind": "input", "score": 77, "critical": true, "enabled": true},
-            ],
-        },
+    {
+    "name": "edge-gateway",
+    "checks": [
+    {"name": "default credentials", "kind": "auth", "score": 82, "critical": true, "enabled": true},
+    {"name": "open admin port", "kind": "network", "score": 64, "critical": false, "enabled": true},
+    {"name": "legacy parser", "kind": "input", "score": 91, "critical": false, "enabled": true},
+    ],
+    },
+    {
+    "name": "report-service",
+    "checks": [
+    {"name": "weak token validation", "kind": "auth", "score": 73, "critical": true, "enabled": true},
+    {"name": "debug endpoint", "kind": "network", "score": 88, "critical": true, "enabled": true},
+    {"name": "unused upload path", "kind": "input", "score": 100, "critical": false, "enabled": false},
+    ],
+    },
+    {
+    "name": "worker-node",
+    "checks": [
+    {"name": "stale session", "kind": "auth", "score": 42, "critical": false, "enabled": true},
+    {"name": "exposed metrics", "kind": "network", "score": 56, "critical": false, "enabled": true},
+    {"name": "unsafe archive name", "kind": "input", "score": 77, "critical": true, "enabled": true},
+    ],
+    },
     ]
 
     let results = []

@@ -1,0 +1,69 @@
+package main
+
+import ["lstd", "sys"]
+
+func triple(value) {
+    return value * 3
+}
+
+func main() {
+    let platform = sys.os_info()["platform"]
+    let library_name = "liblstd_fixture.so"
+    if sys.is_windows() {
+        library_name = "lstd_fixture.dll"
+    } else if not sys.is_linux() {
+        library_name = "liblstd_fixture.dylib"
+    }
+    let library_path = "test/lstd/build/" + platform + "/" + library_name
+
+    let library = lstd.load(library_path)
+    let add = lstd.bind(library, "ys_lstd_add", "int32", ["int32", "int32"], "cdecl")
+    assert(lstd.call(add, [19, 23]) == 42, "bind by name and integer call")
+
+    let found = lstd.find(library, "ys_lstd_add")
+    let found_add = lstd.bind(found, "int32", ["int32", "int32"])
+    assert(lstd.call(found_add, [20, 22]) == 42, "find then bind")
+
+    let weighted = lstd.bind(library, "ys_lstd_weighted", "double", ["double", "int32"])
+    assert(lstd.call(weighted, [2.5, 4]) == 10.0, "double arguments and return")
+
+    let strlen = lstd.bind(library, "ys_lstd_strlen", "uint64", ["string"])
+    assert(lstd.call(strlen, ["lstd ABI"]) == 8, "string argument and uint64 return")
+
+    let greeting_fn = lstd.bind(library, "ys_lstd_greeting", "ptr", [])
+    let greeting_ptr = lstd.call(greeting_fn, [])
+    assert(lstd.str(lstd.ptr(greeting_ptr)) == "hello from C++", "native pointer and C string")
+
+    let pair_signature = "struct:int32,double"
+    let transform = lstd.bind(library, "ys_lstd_pair_transform", pair_signature, [pair_signature])
+    let pair = lstd.call(transform, [[7, 1.5]])
+    assert(pair[0] == 12 and pair[1] == 3.0, "structure passed and returned by value")
+
+    let apply = lstd.bind(library, "ys_lstd_apply", "int32", ["ptr", "int32"])
+    let callback = lstd.callback(triple, "int32", ["int32"])
+    assert(lstd.call(apply, [callback, 14]) == 42, "native callback invocation")
+    lstd.callback_free(callback)
+
+    let buffer = lstd.buffer(16)
+    lstd.write(lstd.ptr(buffer), b"hello\x00")
+    assert(lstd.str(buffer) == "hello", "native buffer string read")
+    assert(lstd.read(buffer, 6) == b"hello\x00", "native buffer byte read")
+
+    let uppercase = lstd.bind(library, "ys_lstd_upper_first", "int32", ["ptr"])
+    assert(lstd.call(uppercase, [buffer]) == 72, "native pointer mutation")
+    assert(lstd.str(buffer) == "Hello", "native write visible through lstd.str")
+    lstd.free(buffer)
+    lstd.free(lstd.alloc(1))
+
+    let error_message = lstd.error("lstd fixture error")
+    assert(error_message == "lstd fixture error", "error conversion")
+
+    if sys.is_windows() {
+        let ordinal_symbol = lstd.find_ordinal(library, 17)
+        let ordinal_fn = lstd.bind(ordinal_symbol, "int32", [])
+        assert(lstd.call(ordinal_fn, []) == 1701, "Windows ordinal export")
+    }
+
+    lstd.close(library)
+    println("lstd fixture: all checks passed (", platform, ")")
+}

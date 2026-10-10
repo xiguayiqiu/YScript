@@ -21,7 +21,7 @@
 把「协议解析 / 抓包分析 / 密码学运算 / 漏洞验证」这类工作从零散的 Shell 命令，
 变成可读、可复用、可版本管理的脚本。
 
-### [在线学习文档（58 篇）](https://github.com/xiguayiqiu/YScript/wiki)
+### [在线学习文档（60 篇）](https://github.com/xiguayiqiu/YScript/wiki)
 
 </div>
 
@@ -156,7 +156,7 @@ func this.describe() -> string { return super.describe() + "，是只" + this.br
 | **并发** | `warp` 轻量协程 + `sync` 全套同步原语（Mutex/RWMutex/Chan/TLS/WaitGroup/Once/WorkerPool） |
 | **异常** | `expr catch h` 一行兜底、`catch {} match { T(e) -> }` 按类型分流、`ensure` 保证清理 |
 | **面向对象** | `struct` 方法、接口多态、继承多态（`extends` + `super`）、泛型函数/结构体、类型推导与约束 |
-| **GPU 加速** | `cuda` 命名空间支持密码学运算批处理，无 GPU 时自动降级 CPU |
+| **GPU 加速** | `cuda` 命名空间提供批量摘要、HMAC、PBKDF2 与 WPA2 PMK；无 CUDA/GPU 时 GPU 运算明确报错，不会伪装为 CPU 回退 |
 | **FFI** | `ffi` 真实 ABI 调用动态库（0-8 参数，int/string/void 返回） |
 | **工程** | 预处理器、REPL 会话、`.ybc` 字节码落盘、中英双语 i18n |
 
@@ -172,6 +172,8 @@ ysc                       # 无参数 = 进入 REPL 会话
 ysc -e 'println(1+1)'     # 直接执行一段代码
 ysc -c hello.ys           # 仅做语法检查，不执行
 ysc --emit a.ybc x.ys     # 导出字节码
+ysc pkg -target linux/amd64 hello.ys # 打包为独立 Linux 可执行程序
+ysc pkg ./my-project               # 项目目录自动查找唯一声明 main() 的脚本
 ysc test ./test/...       # 运行 *_test.ys 测试
 ysc fmt ./src/...         # 递归格式化 YScript 源文件
 ysc fmt -check .          # 检查当前目录格式
@@ -188,7 +190,9 @@ ysc doc net.LookupHost   # 查看内置标准库成员
 ysc -h                    # 查看全部选项
 ```
 
-独立可执行文件编译不再提供；需要可移植的字节码文件时，可用 `ysc --emit a.ybc x.ys` 生成并继续通过解释器运行。
+可使用 `ysc pkg` 将脚本或项目打包为独立程序；项目目录需包含 `ysc.models`，打包器会扫描其中的 `.ys` 文件，自动选择唯一声明 `main()` 的文件作为入口，不要求命名为 `main.ys`。如果项目中有多个 `main()`，请显式传入入口脚本。打包会解析并嵌入静态导入依赖。运行时源码已随 `ysc` 内嵌，无需安装或定位 YScript Go 源码仓库；打包仍需 Go 工具链及 Go 模块依赖（本机缓存或可下载）。运行时会依据 `import` 裁剪标准库模块；默认关闭 cgo 以便跨平台构建，本机依赖已安装时可用 `-cgo` 启用。详见开发仓库的独立程序打包指南。
+
+单目标打包默认在当前工作目录生成以脚本名命名的可执行文件；项目打包使用 `ysc.models` 中声明的项目名。多目标打包会追加系统和架构后缀，避免产物覆盖。
 
 ### 查询 YScript 文档
 
@@ -366,22 +370,23 @@ let s = connect(host, port) catch return  // 失败即返回
 
 ---
 
-## 标准库命名空间
+## 函数速查
 
-40+ 命名空间，按用途分组：
+下表覆盖当前运行时注册的 **43 个标准库命名空间、914 个命名空间成员**；内置类型另有 **6 类、113 个方法**。计数按开发仓库的运行时注册表统计。各成员的完整名称、内置类型方法、分组索引及对应章节见[完整函数速查表](https://github.com/xiguayiqiu/YScript/wiki/函数速查表)。
 
-| 分组 | 命名空间 |
-|------|----------|
-| 内建转换 | `hex` `alpha` `alnum` `ascii` `errors` |
-| 文本 | `strings` `encoding` `json` `regex` `color` `array` |
-| 字节流 | `binary` |
-| 文件 / IO | `io` `path` `stdio` `os` `load` |
-| 序列化 | `csv` `xml` `yaml` `toml` `ini` |
-| 网络 | `socket` `net` `raw` `ssl` `http` `url` |
-| 加密 | `crypto` `aes` `rsa` `hash` |
-| 并发 | `thread` `sync` |
-| 系统 | `sys` `time` `rand` `log` |
-| 其它 | `ffi` `cuda` `reflect` `iter` `from` `compress` |
+| 用途 | 命名空间（成员数） |
+|------|--------------------|
+| 字节流与 IO | `binary`（100） `io`（118） `stdio`（33） |
+| 网络与图像 | `socket`（7） `net`（32） `raw`（22） `ssl`（12） `http`（43） `url`（3） `ocr`（6） |
+| 文本与数据 | `strings`（30） `array`（24） `color`（21） `encoding`（8） `from`（12） `json`（6） `regex`（8） `csv`（3） `xml`（2） `yaml`（2） `toml`（2） `ini`（2） |
+| 系统与诊断 | `os`（16） `path`（16） `sys`（55） `cli`（4） `time`（32） `log`（15） `rand`（9） `errors`（7） |
+| 并发与动态加载 | `sync`（13） `thread`（3） `iter`（7） `load`（8） |
+| 加密与运行时工具 | `crypto`（45） `aes`（3） `rsa`（5） `compress`（2） `cuda`（18） `reflect`（13） `ffi`（9） `lstd`（16） |
+| C 标准库与互操作 | `c`（122） |
+
+**内置类型方法**：String（46）、Bytes（18）、List（26）、Dict（17）、Int（4）、Float（2）。
+
+注：`hex`、`alpha`、`alnum`、`ascii` 等是全局内置函数，不计入命名空间成员总数；全局内置函数和常量见《[关键字速查](https://github.com/xiguayiqiu/YScript/wiki/05_关键字速查)》及《[内置函数与常量](https://github.com/xiguayiqiu/YScript/wiki/23_内置函数与常量)》。
 
 `load` 支持运行时动态管理 YScript 代码：`load.load` / `load.reload` 处理普通函数插件；`load.install`、`load.start`、`load.stop`、`load.uninstall` 管理可包含全局变量、类型和模块入口的完整脚本模块。完整说明见 `doc/YScript.wiki/54_热加载与热插拔.md`。
 
@@ -451,9 +456,9 @@ catch {
 
 ## 文档
 
-📖 **在线阅读（推荐）**：**[YScript Wiki →](https://github.com/xiguayiqiu/YScript/wiki)** —— 共 **58 篇**中文手册，可直接浏览与搜索；测试用例编写和 `ysc test` 命令详见[测试框架指南](https://github.com/xiguayiqiu/YScript/wiki/56_YScript测试框架)，`ysc fmt` 用法详见[代码格式化指南](https://github.com/xiguayiqiu/YScript/wiki/57_YScript代码格式化)，`ysc doc` 用法详见[文档查询指南](https://github.com/xiguayiqiu/YScript/wiki/58_YScript文档查询)。
+📖 **在线阅读（推荐）**：**[YScript Wiki →](https://github.com/xiguayiqiu/YScript/wiki)** —— 共 **60 篇**中文手册，可直接浏览与搜索；测试用例编写和 `ysc test` 命令详见[测试框架指南](https://github.com/xiguayiqiu/YScript/wiki/56_YScript测试框架)，`ysc fmt` 用法详见[代码格式化指南](https://github.com/xiguayiqiu/YScript/wiki/57_YScript代码格式化)，`ysc doc` 用法详见[文档查询指南](https://github.com/xiguayiqiu/YScript/wiki/58_YScript文档查询)，白名单 native 调用详见[lstd 指南](https://github.com/xiguayiqiu/YScript/wiki/60_lstd安全动态库调用)。
 
-完整手册同时以 Markdown 形式存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：42 命名空间 + 6 类型 / 898 个命名空间成员 + 113 个类型方法）：
+完整手册同时以 Markdown 形式存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：43 命名空间 + 6 类型 / 914 个命名空间成员 + 113 个类型方法）：
 
 | 主题 | 章节 |
 |------|------|
@@ -485,7 +490,7 @@ catch {
 
 ## 版本
 
-当前版本 **v0.1.5**。完整变更记录见开发仓库的 `doc/Log.md`。
+当前版本 **v0.2.0**。完整变更记录见开发仓库的 `doc/Log.md`。
 
 ## 许可
 

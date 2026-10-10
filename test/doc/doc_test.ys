@@ -1,0 +1,78 @@
+package main
+
+import ["sys", "io", "path", "binary", "os"]
+
+func main(){}
+# 这是测试方法
+func yscPath() {
+    let configured = os.getenv("YSC_BIN")
+    if configured != "" {
+        return configured
+    }
+    let executable = path.join(path.dirname(__FILE__), "../../ysc")
+    if sys.is_windows() {
+        executable += ".exe"
+    }
+    return path.abs(executable)
+}
+
+func checkDocResult(t, result, expected, name) {
+    if not result.success {
+        t.Errorf("%s failed with exit code %d: %s", name, result.exit_code, binary.UTF8(result.stderr))
+        return
+    }
+    let output = binary.UTF8(result.stdout)
+    if not output.contains(expected) {
+        t.Errorf("%s output does not contain %q:\n%s", name, expected, output)
+    }
+}
+
+func TestDocLocalPackage(t) {
+    let packageDir = path.join(path.dirname(__FILE__), "sample")
+    let result = sys.exec(yscPath(), ["doc", packageDir])
+    checkDocResult(t, result, "Package sample documents the local API.", "local package overview")
+    checkDocResult(t, result, "func Fetch(url: string)", "local package declaration")
+    if binary.UTF8(result.stdout).contains("func helper()") {
+        t.Error("local package overview unexpectedly included unexported helper")
+    }
+}
+
+func TestDocLocalSymbolAndSource(t) {
+    let packageDir = path.join(path.dirname(__FILE__), "sample")
+    let result = sys.exec(yscPath(), ["doc", packageDir, "Fetch"])
+    checkDocResult(t, result, "Fetch retrieves a resource.", "local symbol documentation")
+
+    let source = sys.exec(yscPath(), ["doc", "-src", packageDir, "Fetch"])
+    checkDocResult(t, source, "return url", "local symbol source")
+
+    let all = sys.exec(yscPath(), ["doc", "-all", packageDir])
+    checkDocResult(t, all, "func helper()", "unexported declarations")
+}
+
+func TestDocThirdPartyPackage(t) {
+    let store = t.TempDir()
+    let packageDir = path.join(store, "docfixture", "remote")
+    io.mkdir_all(packageDir)
+    io.write_file(
+        path.join(packageDir, "remote.ys"),
+        "package remote\n\n# Connect opens a remote resource.\nfunc Connect() {}\n",
+    )
+    let result = sys.exec(
+        yscPath(),
+        ["doc", "docfixture/remote", "Connect"],
+        {"env": {"YSC_PKG_DIR": store}, "timeout_ms": 10000},
+    )
+    checkDocResult(t, result, "Connect opens a remote resource.", "third-party package symbol")
+    checkDocResult(t, result, "func Connect()", "third-party package declaration")
+}
+
+func TestDocUnknownSymbol(t) {
+    let packageDir = path.join(path.dirname(__FILE__), "sample")
+    let result = sys.exec(yscPath(), ["doc", packageDir, "Missing"])
+    if result.success or result.exit_code == 0 {
+        t.Error("unknown symbol unexpectedly succeeded")
+    }
+    if not binary.UTF8(result.stderr).contains("Missing") {
+        t.Errorf("unknown symbol error does not name the symbol: %s", binary.UTF8(result.stderr))
+    }
+}

@@ -1,0 +1,80 @@
+package main
+
+func check(t, condition, name) {
+    if not condition {
+        t.Errorf("generic test failed: %s", name)
+    }
+}
+
+func first<T>(items: list<T>) -> T {
+    return items[0]
+}
+
+func identity<T>(value: T) -> T {
+    return value
+}
+
+func add<T: number>(left: T, right: T) -> T {
+    return left + right
+}
+
+func replace_first<T>(items: list<T>, value: T) -> list<T> {
+    items[0] = value
+    return items
+}
+
+struct Box<T> {
+    value: T
+}
+
+func this.get() -> T {
+    return this.value
+}
+
+interface Named {
+    name() -> string
+}
+
+struct Person {
+    value: string
+}
+
+func this.name() -> string {
+    return this.value
+}
+
+func display<T: Named>(value: T) -> string {
+    return value.name()
+}
+
+struct Inventory {
+    quantities: list<int>
+    prices: dict<string, float>
+}
+
+func TestGenericCollections(t) {
+    let numbers: list<int> = [3, 5, 8]
+    let prices: dict<string, float> = {"tea": 2.5, "coffee": 4.0}
+    let inventory = Inventory{
+        quantities: numbers,
+        prices: prices,
+    }
+
+    check(t, len(numbers) == 3 and first(numbers) == 3, "泛型列表注解可解析并运行")
+    check(t, prices["tea"] == 2.5, "泛型字典注解可解析并运行")
+    check(t, inventory.quantities[2] == 8 and inventory.prices["coffee"] == 4.0, "泛型结构体字段可解析并运行")
+}
+
+func TestGenericInferenceAndConstraints(t) {
+    let numbers: list<int> = [3, 5, 8]
+    let int_box = Box<int>{value: 21}
+    let inferred_box = Box{value: "generic"}
+    let person = Person{value: "Ada"}
+
+    check(t, identity(12) == 12 and identity("ok") == "ok", "泛型函数可推断不同类型参数")
+    check(t, add(4, 5) == 9, "数值泛型约束接受整数")
+    check(t, replace_first(numbers, 7)[0] == 7, "泛型容器在调用和修改后仍保持类型")
+    check(t, int_box.value == 21 and inferred_box.value == "generic", "泛型结构体显式参数和推断参数均生效")
+    check(t, int_box.get() == 21, "泛型结构体方法保留接收者类型参数")
+    check(t, display(person) == "Ada", "自定义接口约束被检查并分发")
+}

@@ -1,0 +1,131 @@
+package main
+
+import ["cli", "net", "strings"]
+
+func service_name(port) {
+    let services = {}
+    services.set(21, "FTP")
+    services.set(22, "SSH")
+    services.set(23, "Telnet")
+    services.set(25, "SMTP")
+    services.set(53, "DNS")
+    services.set(80, "HTTP")
+    services.set(110, "POP3")
+    services.set(143, "IMAP")
+    services.set(443, "HTTPS")
+    services.set(445, "SMB")
+    services.set(3306, "MySQL")
+    services.set(3389, "RDP")
+    services.set(5432, "PostgreSQL")
+    services.set(6379, "Redis")
+    services.set(8080, "HTTP-Proxy")
+    services.set(8443, "HTTPS-Alt")
+    services.set(9200, "Elasticsearch")
+    services.set(27017, "MongoDB")
+    return services.get(port, "unknown")
+}
+
+func target_host(url) {
+    let target = url
+    let scheme_parts = strings.Split(target, "://")
+    if len(scheme_parts) > 1 {
+        target = scheme_parts[1]
+    }
+
+    target = strings.Split(target, "/")[0]
+    target = strings.Split(target, "?")[0]
+    target = strings.Split(target, ":")[0]
+    return target
+}
+
+func main() {
+    let common_ports = [
+        21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 161, 389,
+        443, 445, 465, 514, 587, 631, 636, 873, 990, 993, 995, 1080,
+        1194, 1433, 1521, 2049, 2082, 2083, 2181, 2222, 2375, 2376,
+        2483, 2484, 3128, 3306, 3389, 3690, 4443, 4848, 5000, 5432,
+        5555, 5601, 5672, 5900, 5984, 6000, 6379, 6443, 7001, 7077,
+        8080, 8081, 8086, 8090, 8443, 9000, 9042, 9092, 9100, 9200,
+        9300, 9418, 9999, 10000, 11211, 15672, 27017, 50000, 61616,
+    ]
+    let app = cli.New("uscan", "Scan common TCP ports on a URL or host")
+    app.flag("help", "h", false, "show this help")
+    let scan = app.command("scan", "Scan common TCP ports on a target")
+    scan.option("url", "u", "", "target URL, hostname, or IP address")
+    scan.option("timeout", "t", 0.5, "connection timeout in seconds")
+    scan.flag("help", "h", false, "show this help")
+
+    let argv = args
+    if len(argv) > 0 and strings.HasSuffix(argv[0], "uscan.ys") {
+        argv = argv[1:]
+    }
+    if len(argv) > 0 and (argv[0] == "-h" or argv[0] == "--help") {
+        println(app.usage())
+        println("Example:")
+        println("  ysc test/cli/uscan.ys scan -u https://example.com")
+        return
+    }
+    let opts = app.parse(argv)
+
+    if opts.help and opts.command == "" {
+        println(app.usage())
+        println("Example:")
+        println("  ysc test/cli/uscan.ys scan -u https://example.com")
+        return
+    }
+    if opts.help and opts.command == "scan" {
+        println(scan.usage())
+        println("Example:")
+        println("  ysc test/cli/uscan.ys scan -u https://example.com")
+        return
+    }
+    if opts.command != "scan" {
+        println(app.usage())
+        println("Example:")
+        println("  ysc test/cli/uscan.ys scan -u https://example.com")
+        return
+    }
+    if opts.url == "" {
+        println("A target is required. Use -u URL.")
+        println(scan.usage())
+        return
+    }
+    if opts.timeout <= 0 {
+        println("Timeout must be greater than zero.")
+        return
+    }
+
+    let host = target_host(opts.url)
+    if host == "" {
+        println("Unable to get a host from target: " + opts.url)
+        return
+    }
+
+    let ip = host
+    if not net.IsIP(host) {
+        let addresses = net.LookupHost(host)
+        if addresses == nil or len(addresses) == 0 {
+            println("Unable to resolve target: " + host)
+            return
+        }
+        ip = string(addresses[0])
+    }
+
+    println("Target: " + host + " (" + ip + ")")
+    println("Scanning common TCP ports...")
+    let open_count = 0
+    for port in common_ports {
+        let conn = net.DialTimeout(ip + ":" + string(port), opts.timeout)
+        if conn != nil {
+            conn.close()
+            printf("[+] %-5d %s\n", port, service_name(port))
+            open_count = open_count + 1
+        }
+    }
+
+    if open_count == 0 {
+        println("No open common TCP ports found.")
+    } else {
+        println("Found " + string(open_count) + " open port(s).")
+    }
+}

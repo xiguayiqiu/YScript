@@ -1,0 +1,3 @@
+LIBRARY lstd_fixture
+EXPORTS
+    ys_lstd_ordinal_value @17

@@ -1,5 +1,4 @@
-models "yscript-pr"
+models "yscript-pr" : "v0.0.0"
 res [
-    "RichProgress/progress",
-    "RichProgress",
+    "RichProgress" : "f907e6415283e4bad8e26c66c6b4ad289f90a324",
 ]

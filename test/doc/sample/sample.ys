@@ -1,0 +1,9 @@
+# Package sample documents the local API.
+package sample
+
+# Fetch retrieves a resource.
+func Fetch(url: string) {
+    return url
+}
+
+func helper() {}

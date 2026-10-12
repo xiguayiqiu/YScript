@@ -156,7 +156,7 @@ func this.describe() -> string { return super.describe() + "，是只" + this.br
 | **并发** | `warp` 轻量协程 + `sync` 全套同步原语（Mutex/RWMutex/Chan/TLS/WaitGroup/Once/WorkerPool） |
 | **异常** | `expr catch h` 一行兜底、`catch {} match { T(e) -> }` 按类型分流、`ensure` 保证清理 |
 | **面向对象** | `struct` 方法、接口多态、继承多态（`extends` + `super`）、泛型函数/结构体、类型推导与约束 |
-| **GPU 加速** | `cuda` 命名空间提供批量摘要、HMAC、PBKDF2 与 WPA2 PMK；无 CUDA/GPU 时 GPU 运算明确报错，不会伪装为 CPU 回退 |
+| **GPU 加速** | `cuda` 命名空间支持密码学运算批处理，无 GPU 时自动降级 CPU |
 | **FFI** | `ffi` 真实 ABI 调用动态库（0-8 参数，int/string/void 返回） |
 | **工程** | 预处理器、REPL 会话、`.ybc` 字节码落盘、中英双语 i18n |
 
@@ -173,7 +173,6 @@ ysc -e 'println(1+1)'     # 直接执行一段代码
 ysc -c hello.ys           # 仅做语法检查，不执行
 ysc --emit a.ybc x.ys     # 导出字节码
 ysc pkg -target linux/amd64 hello.ys # 打包为独立 Linux 可执行程序
-ysc pkg ./my-project               # 项目目录自动查找唯一声明 main() 的脚本
 ysc test ./test/...       # 运行 *_test.ys 测试
 ysc fmt ./src/...         # 递归格式化 YScript 源文件
 ysc fmt -check .          # 检查当前目录格式
@@ -190,9 +189,22 @@ ysc doc net.LookupHost   # 查看内置标准库成员
 ysc -h                    # 查看全部选项
 ```
 
-可使用 `ysc pkg` 将脚本或项目打包为独立程序；项目目录需包含 `ysc.models`，打包器会扫描其中的 `.ys` 文件，自动选择唯一声明 `main()` 的文件作为入口，不要求命名为 `main.ys`。如果项目中有多个 `main()`，请显式传入入口脚本。打包会解析并嵌入静态导入依赖。运行时源码已随 `ysc` 内嵌，无需安装或定位 YScript Go 源码仓库；打包仍需 Go 工具链及 Go 模块依赖（本机缓存或可下载）。运行时会依据 `import` 裁剪标准库模块；默认关闭 cgo 以便跨平台构建，本机依赖已安装时可用 `-cgo` 启用。详见开发仓库的独立程序打包指南。
+### 打包为独立程序
 
-单目标打包默认在当前工作目录生成以脚本名命名的可执行文件；项目打包使用 `ysc.models` 中声明的项目名。多目标打包会追加系统和架构后缀，避免产物覆盖。
+`.ybc` 是可由 `ysc` 直接执行的编译后字节码文件：文件采用带魔数、格式版本、解压长度与校验和的二进制容器，并压缩保存编译 IR。`ysc --emit` 与 `ysc pkg --ybc` 都输出此格式；`ysc program.ybc` 可直接加载运行。当前运行时也能读取旧版 JSON `.ybc`，但新编译一律输出二进制格式。`ysc pkg` 将入口脚本编译为优化后的 `.ybc`，嵌入 Go 运行时并调用 Go 工具链生成目标平台的独立可执行文件。使用 `ysc pkg --ybc` 时只生成优化后的 `.ybc` 中间字节码，不会构建可执行文件，也不需要 Go 构建运行时。普通脚本只打包指定入口及其静态 import 闭包；传入含 `ysc.models` 的项目目录时，会扫描项目 `.ys` 文件并自动选择唯一声明 `main()` 的文件作为入口，不要求文件名为 `main.ys`。如果项目中有多个 `main()`，可显式传入入口文件。项目打包会递归同步校验项目及依赖库锁定的依赖，再将入口依赖的项目源码合并进字节码，因此这些静态依赖不需要运行时访问项目文件或依赖缓存。通过 `load.load` / `load.install` 等动态路径加载的脚本或模块不会自动嵌入，仍需按程序使用的路径部署。打包时按 import 生成标准库注册表和运行时桥接，仅链接引用的标准库模块；未使用的 eval/动态加载编译器、调试器及源码行映射也会移除。Go 运行时源码已随 `ysc` 内嵌，无需单独安装或定位 YScript Go 源码仓库；构建独立可执行文件时仍需 Go 工具链和 Go 模块依赖（可联网下载或使用本地缓存）。默认关闭 cgo 以便交叉编译；本机依赖已安装时可用 `-cgo` 启用，交叉 cgo 还需自行配置目标 C 编译器和目标依赖库。
+
+```bash
+ysc pkg hello.ys
+ysc pkg --ybc hello.ys # 只生成优化后的 hello.ybc
+ysc pkg -target linux/amd64 hello.ys
+ysc pkg -target linux/amd64 -target windows/amd64 -o dist/hello hello.ys
+ysc pkg ./my-project # 自动选择项目中声明 main() 的唯一 .ys 文件
+ysc pkg -cgo hello.ys # 启用本机 cgo 能力
+```
+
+默认产物写入当前工作目录：单目标时使用脚本名，项目打包时使用 `ysc.models` 声明的名称；Windows 目标会添加 `.exe`。指定多个目标时会追加系统和架构后缀以避免覆盖。目标支持 Linux、Windows、macOS（`darwin`）、FreeBSD、OpenBSD、NetBSD、DragonFly、Solaris 和 illumos，以及 `386`、`amd64`、`arm`、`arm64`。详情见[独立程序打包指南](../doc/YScript.wiki/59_pkg打包.md)。
+
+`--ybc` 默认写出 `<脚本名或项目名>.ybc` 到当前工作目录；可用 `-o` 指定路径（未写扩展名时自动补 `.ybc`）。该模式不能与 `-target` 或 `-cgo` 同时使用。
 
 ### 查询 YScript 文档
 
@@ -370,25 +382,62 @@ let s = connect(host, port) catch return  // 失败即返回
 
 ---
 
-## 函数速查
+## 标准库命名空间
 
-下表覆盖当前运行时注册的 **43 个标准库命名空间、914 个命名空间成员**；内置类型另有 **6 类、113 个方法**。计数按开发仓库的运行时注册表统计。各成员的完整名称、内置类型方法、分组索引及对应章节见[完整函数速查表](https://github.com/xiguayiqiu/YScript/wiki/函数速查表)。
+40+ 命名空间，按用途分组：
 
-| 用途 | 命名空间（成员数） |
-|------|--------------------|
-| 字节流与 IO | `binary`（100） `io`（118） `stdio`（33） |
-| 网络与图像 | `socket`（7） `net`（32） `raw`（22） `ssl`（12） `http`（43） `url`（3） `ocr`（6） |
-| 文本与数据 | `strings`（30） `array`（24） `color`（21） `encoding`（8） `from`（12） `json`（6） `regex`（8） `csv`（3） `xml`（2） `yaml`（2） `toml`（2） `ini`（2） |
-| 系统与诊断 | `os`（16） `path`（16） `sys`（55） `cli`（4） `time`（32） `log`（15） `rand`（9） `errors`（7） |
-| 并发与动态加载 | `sync`（13） `thread`（3） `iter`（7） `load`（8） |
-| 加密与运行时工具 | `crypto`（45） `aes`（3） `rsa`（5） `compress`（2） `cuda`（18） `reflect`（13） `ffi`（9） `lstd`（16） |
-| C 标准库与互操作 | `c`（122） |
-
-**内置类型方法**：String（46）、Bytes（18）、List（26）、Dict（17）、Int（4）、Float（2）。
-
-注：`hex`、`alpha`、`alnum`、`ascii` 等是全局内置函数，不计入命名空间成员总数；全局内置函数和常量见《[关键字速查](https://github.com/xiguayiqiu/YScript/wiki/05_关键字速查)》及《[内置函数与常量](https://github.com/xiguayiqiu/YScript/wiki/23_内置函数与常量)》。
+| 分组 | 命名空间 |
+|------|----------|
+| 内建转换 | `hex` `alpha` `alnum` `ascii` `errors` |
+| 文本 | `strings` `encoding` `json` `regex` `color` `array` |
+| 字节流 | `binary` |
+| 文件 / IO | `io` `path` `stdio` `os` `load` |
+| 序列化 | `csv` `xml` `yaml` `toml` `ini` |
+| 网络 | `socket` `net` `raw` `ssl` `http` `url` |
+| 加密 | `crypto` `aes` `rsa` `hash` |
+| 并发 | `thread` `sync` `event` |
+| 系统 | `sys` `time` `rand` `log` |
+| 其它 | `ffi` `cuda` `reflect` `iter` `from` `compress` |
 
 `load` 支持运行时动态管理 YScript 代码：`load.load` / `load.reload` 处理普通函数插件；`load.install`、`load.start`、`load.stop`、`load.uninstall` 管理可包含全局变量、类型和模块入口的完整脚本模块。完整说明见 `doc/YScript.wiki/54_热加载与热插拔.md`。
+
+`event.wait()` 可在 VM 主执行线程等待宿主投递的回调；收到通知后，VM 会在安全点执行回调。`event.wait(timeout_ms)` 可设置毫秒超时，并在超时返回 `false`、收到通知时返回 `true`。该接口用于嵌入式宿主事件循环；普通 CLI 不会自行产生 GUI 事件，且 queued callback 内不能再次调用 `event.wait()`。
+
+Go 宿主可导入 `yscript/host` 编译并运行脚本。`Bind` 将宿主后端操作注册为脚本可调用函数，`Post` 则按顶层函数名安全投递事件回调；回调参数在入队前转换并复制：
+
+```go
+package main
+
+import (
+    "context"
+    "yscript/host"
+)
+
+func run(source string) error {
+    script, err := host.New(source, host.Options{Filename: "ui.ys"})
+    if err != nil { return err }
+    defer script.Close()
+    ready := make(chan struct{})
+    if err := script.Bind("host_ready", func([]any) (any, error) {
+        close(ready)
+        return nil, nil
+    }); err != nil { return err }
+
+    runDone := make(chan error, 1)
+    go func() { runDone <- script.Run() }()
+    <-ready
+    task, err := script.Post("on_click", 12, 30)
+    if err != nil { return err }
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    if _, err := task.Wait(ctx); err != nil { return err }
+    return <-runDone
+}
+```
+
+每个进程当前只能有一个活动 `Host`（VM 的标准库桥接回调仍是进程级状态）；关闭它后才能创建另一个。`Bind` 必须在 `Run` 前完成；`Run` 和 `RunEventLoop` 必须串行调用，`Post` 可从宿主的其他 goroutine 调用。需要生命周期取消时使用 `RunContext(ctx)`；它会在字节码指令边界响应取消，也会解除阻塞的 `event.wait()`。已经进入的 Go 绑定函数需由该函数自身配合取消；`Close` 会取消脚本执行、阻止新任务、失败尚在队列中的任务，并唤醒等待。
+
+`host.Options` 还可注入 `Stdin`、`Stdout`、`Stderr`，分别供 YScript 的 `io.Stdin()`、`io.Stdout()`、`io.Stderr()` 使用；未提供时使用进程标准流。绑定的 Go 函数在 VM 执行线程同步调用；若 GUI 工具包要求固定 UI 线程，宿主函数应将操作转发到该工具包的线程，并通过 `Post` 把完成事件送回 VM。宿主仍需提供真正的窗口、绘制和输入后端。
 
 ### `binary` — 字节流处理（速览）
 
@@ -458,7 +507,7 @@ catch {
 
 📖 **在线阅读（推荐）**：**[YScript Wiki →](https://github.com/xiguayiqiu/YScript/wiki)** —— 共 **60 篇**中文手册，可直接浏览与搜索；测试用例编写和 `ysc test` 命令详见[测试框架指南](https://github.com/xiguayiqiu/YScript/wiki/56_YScript测试框架)，`ysc fmt` 用法详见[代码格式化指南](https://github.com/xiguayiqiu/YScript/wiki/57_YScript代码格式化)，`ysc doc` 用法详见[文档查询指南](https://github.com/xiguayiqiu/YScript/wiki/58_YScript文档查询)，白名单 native 调用详见[lstd 指南](https://github.com/xiguayiqiu/YScript/wiki/60_lstd安全动态库调用)。
 
-完整手册同时以 Markdown 形式存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：43 命名空间 + 6 类型 / 914 个命名空间成员 + 113 个类型方法）：
+完整手册同时以 Markdown 形式存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：45 命名空间 + 6 类型 / 976 个命名空间成员 + 113 个类型方法）：
 
 | 主题 | 章节 |
 |------|------|
@@ -470,6 +519,7 @@ catch {
 | 字节流 | 20 字节流处理 |
 | 网络 | 30 网络通信 · 45 TCP 与 UDP · 31 raw 原始帧 · 32 SSL |
 | 系统 | 16 文件与路径 · 25 系统与进程 · 37 日志库 |
+| Native 互操作 | 35 FFI 动态库 · 60 lstd 白名单动态库调用 |
 | 速查 | 00 实现状态 · 05 关键字速查 · 函数速查表 |
 
 编辑器支持：**vim 插件** · **VSCode 插件**（语法高亮 / LSP 智能补全 / 悬停文档 / 跳转定义）。
@@ -490,7 +540,7 @@ catch {
 
 ## 版本
 
-当前版本 **v0.2.0**。完整变更记录见开发仓库的 `doc/Log.md`。
+当前版本 **v0.2.2**。完整变更记录见开发仓库的 `doc/Log.md`。
 
 ## 许可
 

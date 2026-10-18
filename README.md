@@ -505,13 +505,13 @@ catch {
 
 ## 文档
 
-📖 **在线阅读（推荐）**：**[YScript Wiki →](https://github.com/xiguayiqiu/YScript/wiki)** —— 共 **60 篇**中文手册，可直接浏览与搜索；测试用例编写和 `ysc test` 命令详见[测试框架指南](https://github.com/xiguayiqiu/YScript/wiki/56_YScript测试框架)，`ysc fmt` 用法详见[代码格式化指南](https://github.com/xiguayiqiu/YScript/wiki/57_YScript代码格式化)，`ysc doc` 用法详见[文档查询指南](https://github.com/xiguayiqiu/YScript/wiki/58_YScript文档查询)，白名单 native 调用详见[lstd 指南](https://github.com/xiguayiqiu/YScript/wiki/60_lstd安全动态库调用)。
+📖 **在线阅读（推荐）**：**[YScript Wiki →](https://github.com/xiguayiqiu/YScript/wiki)** —— 共 **67 篇**核心中文手册，可直接浏览与搜索；测试用例编写和 `ysc test` 命令详见[测试框架指南](https://github.com/xiguayiqiu/YScript/wiki/56_YScript测试框架)，`ysc fmt` 用法详见[代码格式化指南](https://github.com/xiguayiqiu/YScript/wiki/57_YScript代码格式化)，`ysc doc` 用法详见[文档查询指南](https://github.com/xiguayiqiu/YScript/wiki/58_YScript文档查询)，白名单 native 调用详见[lstd 指南](https://github.com/xiguayiqiu/YScript/wiki/60_lstd安全动态库调用)。
 
-完整手册同时以 Markdown 形式存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：45 命名空间 + 6 类型 / 976 个命名空间成员 + 113 个类型方法）：
+完整手册同时以 Markdown 形式存放于开发仓库的 `doc/` 目录（含按命名空间分类的**函数速查表**：45 命名空间 + 6 类型 / 979 个命名空间成员 + 113 个类型方法）：
 
 | 主题 | 章节 |
 |------|------|
-| 语言基础 | 01 类型系统 · 02 变量与常量 · 03 流程控制 · 04 函数 · 04 运算符 |
+| 语言基础 | 01 类型系统 · 01a 类型转换 · 02 变量与常量 · 03 流程控制 · 04 函数 · 04a 运算符 · 05 关键字速查 |
 | 数据结构 | 06 字符串操作 · 07 字节序列 · 08 集合类型 · 09 数组 · 44 切片 |
 | 面向对象 | 10 结构体与方法 · 11 接口 · 46 继承与多态 |
 | 异常 | 18 错误处理 · 48 异常捕获 |
